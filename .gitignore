@@ -1,0 +1,17 @@
+server/target/
+server/data/
+*.db
+*.sqlite
+*.sqlite3
+web/node_modules/
+web/dist/
+app/.gradle/
+app/.idea/
+app/.kotlin/
+app/build/
+app/app/build/
+app/local.properties
+.env
+.env.*
+*.iml
+.DS_Store
