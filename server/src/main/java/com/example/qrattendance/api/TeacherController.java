@@ -40,18 +40,16 @@ public class TeacherController {
                co.name,
                co.code,
                cl.name class_name,
+               d.name department_name,
                COALESCE(ca.term, ?) semester,
-               CASE
-                 WHEN COUNT(DISTINCT ce.student_id) > 0 THEN COUNT(DISTINCT ce.student_id)
-                 ELSE COUNT(DISTINCT s.id)
-               END student_count
+               COUNT(DISTINCT ce.student_id) student_count
         FROM courses co
-        JOIN classes cl ON cl.id = co.class_id
         JOIN course_assignments ca ON ca.course_id = co.id
         LEFT JOIN course_enrollments ce ON ce.assignment_id = ca.id
-        LEFT JOIN students s ON s.class_id = co.class_id
+        LEFT JOIN classes cl ON cl.id = co.class_id
+        LEFT JOIN departments d ON d.id = co.department_id
         WHERE ca.teacher_id = ?
-        GROUP BY co.id, co.name, co.code, cl.name, ca.term
+        GROUP BY co.id, co.name, co.code, cl.name, d.name, ca.term
         ORDER BY co.id
         """,
         DEFAULT_SEMESTER,
@@ -114,17 +112,9 @@ public class TeacherController {
                COUNT(s.id) total_count
         FROM attendance_sessions se
         JOIN courses co ON co.id = se.course_id
-        LEFT JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
-        JOIN students s ON (
-          (
-            EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            AND s.id IN (SELECT ce.student_id FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-          )
-          OR (
-            NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            AND s.class_id = co.class_id
-          )
-        )
+        JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
+        LEFT JOIN course_enrollments ce ON ce.assignment_id = ca.id
+        LEFT JOIN students s ON s.id = ce.student_id
         LEFT JOIN attendance_records ar ON ar.session_id = se.id AND ar.student_id = s.id
         WHERE se.course_id = ? AND se.teacher_id = ?
         GROUP BY se.id
@@ -163,17 +153,9 @@ public class TeacherController {
                COALESCE(sn.note, '') note
         FROM attendance_sessions se
         JOIN courses co ON co.id = se.course_id
-        LEFT JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
-        JOIN students s ON (
-          (
-            EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            AND s.id IN (SELECT ce.student_id FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-          )
-          OR (
-            NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            AND s.class_id = co.class_id
-          )
-        )
+        JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
+        JOIN course_enrollments ce ON ce.assignment_id = ca.id
+        JOIN students s ON s.id = ce.student_id
         LEFT JOIN attendance_records ar ON ar.session_id = se.id AND ar.student_id = s.id
         LEFT JOIN student_notes sn ON sn.teacher_id = se.teacher_id AND sn.student_id = s.id
         WHERE se.id = ? AND se.teacher_id = ?
@@ -204,16 +186,8 @@ public class TeacherController {
                COALESCE(sn.note, '') note
         FROM courses co
         JOIN course_assignments ca ON ca.course_id = co.id AND ca.teacher_id = ?
-        JOIN students s ON (
-          (
-            EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            AND s.id IN (SELECT ce.student_id FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-          )
-          OR (
-            NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            AND s.class_id = co.class_id
-          )
-        )
+        JOIN course_enrollments ce ON ce.assignment_id = ca.id
+        JOIN students s ON s.id = ce.student_id
         LEFT JOIN student_notes sn ON sn.teacher_id = ? AND sn.student_id = s.id
         WHERE co.id = ?
         ORDER BY s.student_no, s.name
@@ -288,18 +262,16 @@ public class TeacherController {
                    co.name,
                    co.code,
                    cl.name class_name,
+                   d.name department_name,
                    COALESCE(ca.term, ?) semester,
-                   CASE
-                     WHEN COUNT(DISTINCT ce.student_id) > 0 THEN COUNT(DISTINCT ce.student_id)
-                     ELSE COUNT(DISTINCT s.id)
-                   END student_count
+                   COUNT(DISTINCT ce.student_id) student_count
             FROM courses co
-            JOIN classes cl ON cl.id = co.class_id
             JOIN course_assignments ca ON ca.course_id = co.id
             LEFT JOIN course_enrollments ce ON ce.assignment_id = ca.id
-            LEFT JOIN students s ON s.class_id = co.class_id
+            LEFT JOIN classes cl ON cl.id = co.class_id
+            LEFT JOIN departments d ON d.id = co.department_id
             WHERE co.id = ? AND ca.teacher_id = ?
-            GROUP BY co.id, co.name, co.code, cl.name, ca.term
+            GROUP BY co.id, co.name, co.code, cl.name, d.name, ca.term
             """,
             DEFAULT_SEMESTER,
             courseId,
@@ -318,13 +290,14 @@ public class TeacherController {
         """
         SELECT t.id,
                t.name,
-               t.department,
+               COALESCE(d.name, t.department) department,
                t.phone,
                t.email,
                u.username,
                u.display_name
         FROM teachers t
         JOIN users u ON u.id = t.user_id
+        LEFT JOIN departments d ON d.id = t.department_id
         WHERE t.id = ?
         """,
         teacherId);
@@ -336,15 +309,9 @@ public class TeacherController {
             """
             SELECT COUNT(*)
             FROM students s
-            JOIN courses co ON co.class_id = s.class_id
-            JOIN course_assignments ca ON ca.course_id = co.id
-            WHERE s.id = ? AND ca.teacher_id = ? AND (
-              (
-                EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-                AND s.id IN (SELECT ce.student_id FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-              )
-              OR NOT EXISTS (SELECT 1 FROM course_enrollments ce WHERE ce.assignment_id = ca.id)
-            )
+            JOIN course_enrollments ce ON ce.student_id = s.id
+            JOIN course_assignments ca ON ca.id = ce.assignment_id
+            WHERE s.id = ? AND ca.teacher_id = ?
             """,
             Integer.class,
             studentId,

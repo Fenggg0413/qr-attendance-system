@@ -31,7 +31,7 @@ public class StudentController {
     long sessionId = ((Number) body.get("sessionId")).longValue();
     String token = (String) body.get("token");
     Map<String, Object> session =
-        one("SELECT se.id, se.course_id, se.ends_at, se.status, co.class_id FROM attendance_sessions se JOIN courses co ON co.id = se.course_id WHERE se.id = ?", sessionId);
+        one("SELECT se.id, se.course_id, se.teacher_id, se.ends_at, se.status FROM attendance_sessions se WHERE se.id = ?", sessionId);
     if ("CLOSED".equals(session.get("status")) || Instant.parse((String) session.get("ends_at")).isBefore(Instant.now())) {
       throw new ResponseStatusException(HttpStatus.GONE, "考勤已结束");
     }
@@ -40,11 +40,17 @@ public class StudentController {
     }
     Integer eligible =
         jdbc.queryForObject(
-            "SELECT COUNT(*) FROM students WHERE id = ? AND class_id = ?",
+            """
+            SELECT COUNT(*)
+            FROM course_assignments ca
+            JOIN course_enrollments ce ON ce.assignment_id = ca.id
+            WHERE ca.course_id = ? AND ca.teacher_id = ? AND ce.student_id = ?
+            """,
             Integer.class,
-            studentId,
-            ((Number) session.get("class_id")).longValue());
-    if (eligible == null || eligible == 0) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "学生不属于该课程班级");
+            ((Number) session.get("course_id")).longValue(),
+            ((Number) session.get("teacher_id")).longValue(),
+            studentId);
+    if (eligible == null || eligible == 0) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "学生不属于该课程名单");
 
     List<Map<String, Object>> existing = jdbc.queryForList("SELECT id, status, checked_in_at FROM attendance_records WHERE session_id = ? AND student_id = ?", sessionId, studentId);
     if (!existing.isEmpty()) {

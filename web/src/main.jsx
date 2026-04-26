@@ -5,6 +5,7 @@ import {
   Bell,
   BookOpen,
   Building2,
+  CalendarDays,
   Check,
   ChevronLeft,
   ClipboardCheck,
@@ -17,11 +18,11 @@ import {
   LogOut,
   Menu,
   PenLine,
+  PieChart,
   Plus,
   RefreshCw,
   Save,
   Search,
-  ShieldCheck,
   UserRound,
   UsersRound,
   X,
@@ -31,18 +32,6 @@ import './styles.css';
 import { api, ApiError } from './services/api';
 
 const adminResources = {
-  teachers: {
-    title: '教师管理',
-    endpoint: '/admin/teachers',
-    icon: UsersRound,
-    fields: [
-      ['name', '姓名'],
-      ['username', '账号'],
-      ['password', '初始密码'],
-      ['department', '院系'],
-    ],
-    columns: ['id', 'name', 'username', 'department'],
-  },
   students: {
     title: '学生管理',
     endpoint: '/admin/students',
@@ -52,66 +41,38 @@ const adminResources = {
       ['username', '账号'],
       ['password', '初始密码'],
       ['studentNo', '学号'],
-      ['classId', '班级编号'],
-    ],
-    columns: ['id', 'name', 'username', 'student_no', 'class_name'],
-  },
-  classes: {
-    title: '班级管理',
-    endpoint: '/admin/classes',
-    icon: Building2,
-    fields: [
-      ['name', '班级名'],
       ['grade', '年级'],
+      ['departmentId', '所属院系'],
     ],
-    columns: ['id', 'name', 'grade'],
+    columns: ['id', 'name', 'username', 'student_no', 'department_name', 'grade'],
   },
-  courses: {
-    title: '课程管理',
-    endpoint: '/admin/courses',
-    icon: BookOpen,
+  teachers: {
+    title: '教师管理',
+    endpoint: '/admin/teachers',
+    icon: UsersRound,
     fields: [
-      ['name', '课程名'],
-      ['code', '课程代码'],
-      ['classId', '班级编号'],
+      ['name', '姓名'],
+      ['username', '账号'],
+      ['password', '初始密码'],
+      ['departmentId', '所属院系'],
     ],
-    columns: ['id', 'name', 'code', 'class_name'],
-  },
-  assignments: {
-    title: '课程分配',
-    endpoint: '/admin/course-assignments',
-    icon: ClipboardCheck,
-    fields: [
-      ['courseId', '课程编号'],
-      ['teacherId', '教师编号'],
-      ['term', '学期'],
-    ],
-    columns: ['id', 'course_name', 'teacher_name', 'term'],
-  },
-  enrollments: {
-    title: '选课名单',
-    endpoint: '/admin/enrollments',
-    icon: ClipboardCheck,
-    fields: [
-      ['assignmentId', '分配 ID'],
-      ['studentId', '学生 ID'],
-    ],
-    columns: ['id', 'course_name', 'teacher_name', 'student_name', 'student_no'],
-    noEdit: true,
+    columns: ['name', 'username', 'department_name'],
   },
 };
 
-const adminReadViews = {
-  leaves: { title: '特殊申报', icon: FileText },
-  records: { title: '考勤记录', icon: FileText },
-  stats: { title: '考勤统计', icon: BarChart3 },
-};
+const adminNav = [
+  ['dashboard', '仪表盘', BarChart3],
+  ['students', '学生管理', UserRound],
+  ['teachers', '教师管理', UsersRound],
+  ['courses', '课程管理', BookOpen],
+];
 
 const adminLabels = {
   id: 'ID',
   name: '姓名',
   username: '账号',
   department: '院系',
+  department_name: '所属院系',
   student_no: '学号',
   class_name: '班级',
   grade: '年级',
@@ -162,13 +123,25 @@ function courseNameText(name) {
   return name ?? '-';
 }
 
+function teacherOptionText(teacher) {
+  return `${teacher.name}（${teacher.username ?? `ID ${teacher.id}`}） · ${teacher.department_name ?? teacher.department ?? '未设置院系'}`;
+}
+
+const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const fallbackTerms = [
+  { value: '2025-2026学年 秋季学期', label: '2025-2026学年 秋季学期' },
+  { value: '2025-2026学年 春季学期', label: '2025-2026学年 春季学期' },
+  { value: '2026-2027学年 秋季学期', label: '2026-2027学年 秋季学期' },
+  { value: '2026-2027学年 春季学期', label: '2026-2027学年 春季学期' },
+];
+
 function App() {
   const [session, setSession] = useState(() => {
     const raw = localStorage.getItem('qr-attendance-session');
     return raw ? JSON.parse(raw) : null;
   });
   const [teacherView, setTeacherView] = useState('courses');
-  const [adminView, setAdminView] = useState('teachers');
+  const [adminView, setAdminView] = useState('dashboard');
   const [breadcrumb, setBreadcrumb] = useState(['首页', '我的课程']);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -176,14 +149,14 @@ function App() {
     localStorage.setItem('qr-attendance-session', JSON.stringify(nextSession));
     setSession(nextSession);
     setTeacherView('courses');
-    setAdminView('teachers');
+    setAdminView('dashboard');
   }
 
   function logout() {
     localStorage.removeItem('qr-attendance-session');
     setSession(null);
     setTeacherView('courses');
-    setAdminView('teachers');
+    setAdminView('dashboard');
   }
 
   if (!session) return <LoginView onLogin={onLogin} />;
@@ -215,21 +188,11 @@ function App() {
           ) : (
             <nav className="sideNav" aria-label="管理员导航">
               <span>管理</span>
-              {Object.entries(adminResources).map(([key, config]) => {
-                const Icon = config.icon;
+              {adminNav.map(([key, title, Icon]) => {
                 return (
                   <button key={key} className={adminView === key ? 'active' : ''} onClick={() => setAdminView(key)}>
                     <Icon size={17} />
-                    <span>{config.title}</span>
-                  </button>
-                );
-              })}
-              {Object.entries(adminReadViews).map(([key, config]) => {
-                const Icon = config.icon;
-                return (
-                  <button key={key} className={adminView === key ? 'active' : ''} onClick={() => setAdminView(key)}>
-                    <Icon size={17} />
-                    <span>{config.title}</span>
+                    <span>{title}</span>
                   </button>
                 );
               })}
@@ -265,7 +228,7 @@ function App() {
             logout={logout}
           />
         ) : (
-          <AdminPortal session={session} view={adminView} setBreadcrumb={setBreadcrumb} />
+          <AdminPortal session={session} view={adminView} setBreadcrumb={setBreadcrumb} logout={logout} />
         )}
       </main>
     </div>
@@ -1056,65 +1019,737 @@ function StatCard({ icon, value, label }) {
   );
 }
 
-function AdminPortal({ session, view, setBreadcrumb }) {
+function AdminPortal({ session, view, setBreadcrumb, logout }) {
   const client = useMemo(() => api.withToken(session.token), [session.token]);
   const config = adminResources[view];
-  const readConfig = adminReadViews[view];
-  const title = config?.title ?? readConfig?.title ?? '后台管理';
+  const title = view === 'dashboard' ? '仪表盘' : view === 'courses' ? '课程管理' : config?.title ?? '后台管理';
 
   useEffect(() => {
-    setBreadcrumb(['首页', '后台管理', title]);
+    setBreadcrumb(['首页', title]);
   }, [setBreadcrumb, title]);
 
+  if (view === 'dashboard') return <AdminDashboard client={client} session={session} onAuthExpired={logout} />;
+  if (view === 'courses') return <AdminCoursesPage client={client} />;
   if (config) {
     return <AdminResourcePage client={client} config={config} />;
   }
-  if (view === 'leaves') return <AdminLeavePage client={client} />;
-  if (view === 'records') {
-    return (
-      <AdminReadonlyPage
-        client={client}
-        endpoint="/admin/attendance-records"
-        title="考勤记录"
-        subtitle="查看所有学生签到、请假和缺勤记录。"
-        columns={['id', 'session_id', 'course_name', 'student_name', 'status', 'source', 'checked_in_at']}
-      />
-    );
-  }
+  return <AdminDashboard client={client} session={session} onAuthExpired={logout} />;
+}
+
+function AdminDashboard({ client, session, onAuthExpired }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    client.get('/admin/dashboard')
+      .then((next) => {
+        if (!cancelled) setData(next);
+      })
+      .catch((err) => {
+        if (err.status === 401) {
+          onAuthExpired();
+          return;
+        }
+        if (!cancelled) setError(err.message ?? '仪表盘加载失败');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, onAuthExpired]);
+
+  if (error) return <div className="error">{error}</div>;
+  if (!data) return <div className="panel">加载中</div>;
+
+  const kpis = [
+    ['学生总数', data.kpis?.studentTotal ?? 0, UsersRound, 'blue'],
+    ['今日出勤', data.kpis?.todayPresent ?? 0, Check, 'green'],
+    ['今日缺勤', data.kpis?.todayAbsent ?? 0, X, 'red'],
+    ['今日迟到', data.kpis?.todayLate ?? 0, Clock, 'orange'],
+    ['课程总数', data.kpis?.courseTotal ?? 0, BookOpen, 'blue'],
+    ['院系总数', data.kpis?.departmentTotal ?? 0, Building2, 'green'],
+  ];
+
   return (
-    <AdminReadonlyPage
-      client={client}
-      endpoint="/admin/attendance-stats"
-      title="考勤统计"
-      subtitle="按考勤场次聚合应到、已到、请假和缺勤。"
-      columns={['session_id', 'course_name', 'teacher_name', 'class_name', 'total', 'present', 'excused', 'absent']}
-    />
+    <div className="adminDashboard">
+      <section className="welcomeBanner">
+        <div>
+          <h1>管理员，您好</h1>
+          <p>{formatToday()} —— 这是您的今日考勤概览。</p>
+        </div>
+      </section>
+
+      <section className="adminKpiGrid">
+        {kpis.map(([label, value, Icon, tone]) => (
+          <article className="adminKpiCard" key={label}>
+            <span className={`adminKpiIcon ${tone}`}><Icon size={20} /></span>
+            <div>
+              <p>{label}</p>
+              <strong>{value}</strong>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className="dashboardCharts">
+        <div className="panel">
+          <div className="panelHead"><h2><BarChart3 size={17} />近 7 天出勤趋势</h2></div>
+          <TrendChart rows={data.trend ?? []} />
+        </div>
+        <div className="panel">
+          <div className="panelHead"><h2><PieChart size={17} />总体出勤状态分布</h2></div>
+          <DonutSummary distribution={data.distribution ?? {}} />
+        </div>
+      </section>
+
+      <section className="dashboardLower">
+        <CourseAttendanceTable rows={data.courseAttendance ?? []} />
+        <RecentActivities rows={data.recentActivities ?? []} />
+      </section>
+    </div>
   );
 }
 
-function AdminResourcePage({ client, config }) {
-  const [items, setItems] = useState([]);
-  const [form, setForm] = useState(() => emptyAdminForm(config.fields));
-  const [query, setQuery] = useState('');
-  const [editId, setEditId] = useState(null);
+function TrendChart({ rows }) {
+  const max = Math.max(1, ...rows.map((row) => Number(row.present ?? 0) + Number(row.absent ?? 0) + Number(row.late ?? 0)));
+  return (
+    <div className="adminTrendChart">
+      {rows.map((row) => {
+        const present = Number(row.present ?? 0);
+        const absent = Number(row.absent ?? 0);
+        const late = Number(row.late ?? 0);
+        return (
+          <div className="adminTrendColumn" key={row.date}>
+            <div className="stackBar" style={{ height: `${Math.max(8, ((present + absent + late) / max) * 100)}%` }}>
+              <i className="present" style={{ flex: present }} />
+              <i className="late" style={{ flex: late }} />
+              <i className="absent" style={{ flex: absent }} />
+            </div>
+            <span>{String(row.date ?? '').slice(5)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DonutSummary({ distribution }) {
+  const present = Number(distribution.present ?? 0);
+  const absent = Number(distribution.absent ?? 0);
+  const late = Number(distribution.late ?? 0);
+  const total = Math.max(1, present + absent + late);
+  const presentEnd = (present / total) * 360;
+  const lateEnd = presentEnd + (late / total) * 360;
+  return (
+    <div className="donutSummary">
+      <div
+        className="donut"
+        style={{ background: `conic-gradient(#16a34a 0 ${presentEnd}deg, #f59e0b ${presentEnd}deg ${lateEnd}deg, #ef4444 ${lateEnd}deg 360deg)` }}
+      >
+        <span>{distribution.rate ?? 0}%</span>
+      </div>
+      <div className="legendList">
+        <span><i className="present" />出勤 {present}</span>
+        <span><i className="late" />迟到 {late}</span>
+        <span><i className="absent" />缺勤 {absent}</span>
+      </div>
+    </div>
+  );
+}
+
+function CourseAttendanceTable({ rows }) {
+  return (
+    <section className="panel">
+      <div className="panelHead"><h2>课程出勤情况</h2></div>
+      <div className="courseAttendanceRows">
+        {rows.map((row) => {
+          const total = Number(row.total ?? 0);
+          const attended = Number(row.present ?? 0) + Number(row.late ?? 0);
+          const rate = total ? Math.round((attended / total) * 100) : 0;
+          return (
+            <div className="courseAttendanceRow" key={row.course_id ?? row.course_name}>
+              <strong>{row.course_name}</strong>
+              <span>{attended}/{total}</span>
+              <div className="progressBar"><i style={{ width: `${rate}%` }} /></div>
+              <em>{rate}%</em>
+            </div>
+          );
+        })}
+        {!rows.length && <div className="empty">暂无课程出勤数据</div>}
+      </div>
+    </section>
+  );
+}
+
+function RecentActivities({ rows }) {
+  return (
+    <section className="panel">
+      <div className="panelHead">
+        <h2>最近活动记录</h2>
+        <button className="plainLink">查看全部 →</button>
+      </div>
+      <div className="activityList">
+        {rows.map((row) => (
+          <div className="activityItem" key={row.id ?? `${row.student_name}-${row.checked_in_at}`}>
+            <span className="avatarMini">{String(row.student_name ?? '学').slice(0, 1)}</span>
+            <strong>{row.student_name}</strong>
+            <span>{row.course_name}</span>
+            <time>{formatDate(row.checked_in_at)}</time>
+            <span className={`statusBadge ${String(row.status).toLowerCase()}`}>{statusText(row.status)}</span>
+          </div>
+        ))}
+        {!rows.length && <div className="empty">暂无活动</div>}
+      </div>
+    </section>
+  );
+}
+
+function AdminCoursesPage({ client }) {
+  const [courses, setCourses] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [form, setForm] = useState({ name: '', code: '', departmentId: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const filteredItems = useMemo(() => filterRows(items, query), [items, query]);
-
   useEffect(() => {
-    setForm(emptyAdminForm(config.fields));
-    setEditId(null);
-    setQuery('');
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, config]);
+  }, [client]);
 
   async function load() {
     setLoading(true);
     setError('');
     try {
-      setItems(await client.get(config.endpoint));
+      const [nextCourses, nextDepartments] = await Promise.all([
+        client.get('/admin/courses'),
+        client.get('/admin/departments'),
+      ]);
+      setCourses(nextCourses);
+      setDepartments(nextDepartments);
+      if (!form.departmentId && nextDepartments[0]) {
+        setForm((value) => ({ ...value, departmentId: String(nextDepartments[0].id) }));
+      }
+    } catch (err) {
+      setError(err.message ?? '课程加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createCourse(event) {
+    event.preventDefault();
+    await client.post('/admin/courses', normalizeAdminForm(form));
+    setForm({ name: '', code: '', departmentId: departments[0] ? String(departments[0].id) : '' });
+    await load();
+  }
+
+  async function openCourse(course) {
+    setSelected(course);
+    setDetail(await client.get(`/admin/courses/${course.id}`));
+  }
+
+  if (selected && detail) {
+    return (
+      <AdminCourseDetail
+        client={client}
+        detail={detail}
+        departments={departments}
+        onBack={() => {
+          setSelected(null);
+          setDetail(null);
+        }}
+        onChanged={async () => setDetail(await client.get(`/admin/courses/${selected.id}`))}
+      />
+    );
+  }
+
+  return (
+    <div className="adminPage">
+      <AdminPageHead title="课程管理" subtitle="创建课程并进入详情维护排课、教师和学生名单。" icon={<BookOpen />} count={courses.length} onRefresh={load} />
+      <section className="panel adminEditor">
+        <form className="inlineForm" onSubmit={createCourse}>
+          <label>课程名称<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+          <label>课程代码<input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>
+          <label>
+            院系
+            <select value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
+              {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+            </select>
+          </label>
+          <button><Plus size={16} />添加课程</button>
+        </form>
+        {error && <div className="error">{error}</div>}
+      </section>
+      {loading ? <div className="panel">加载中</div> : (
+        <section className="adminCourseGrid">
+          {courses.map((course) => (
+            <article className="adminCourseCard" key={course.id}>
+              <div>
+                <span className="eyebrow">{course.department_name ?? '未设置院系'}</span>
+                <h2>{course.name}</h2>
+                <p>{course.code}</p>
+                <small><CalendarDays size={14} />{course.weekday ?? '-'} {course.start_time ?? ''}-{course.end_time ?? ''} · {course.location ?? '未排课'}</small>
+              </div>
+              <button className="ghost" aria-label={`查看课程 ${course.name}`} onClick={() => openCourse(course)}>查看详情</button>
+            </article>
+          ))}
+          {!courses.length && <div className="empty panel">暂无课程</div>}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function AdminCourseDetail({ client, detail, onBack, onChanged }) {
+  const course = detail.course ?? {};
+  const hasSavedTeacher = Boolean(detail.teacher?.teacher_id ?? detail.teacher?.id);
+  const [schedule, setSchedule] = useState({
+    weekday: detail.schedule?.weekday ?? '',
+    startTime: detail.schedule?.start_time ?? '',
+    endTime: detail.schedule?.end_time ?? '',
+    location: detail.schedule?.location ?? '',
+  });
+  const [teacher, setTeacher] = useState({
+    teacherId: detail.teacher?.teacher_id ?? detail.teacher?.id ?? '',
+    term: detail.teacher?.term ?? '',
+  });
+  const [teachers, setTeachers] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [terms, setTerms] = useState([]);
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [studentSearch, setStudentSearch] = useState('');
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [studentDialogOpen, setStudentDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setSchedule({
+      weekday: detail.schedule?.weekday ?? '',
+      startTime: detail.schedule?.start_time ?? '',
+      endTime: detail.schedule?.end_time ?? '',
+      location: detail.schedule?.location ?? '',
+    });
+    setTeacher({
+      teacherId: detail.teacher?.teacher_id ?? detail.teacher?.id ?? '',
+      term: detail.teacher?.term ?? '',
+    });
+    setSelectedStudentIds([]);
+    setStudentSearch('');
+    setStudentDialogOpen(false);
+  }, [detail]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      client.get('/admin/teachers'),
+      client.get('/admin/students'),
+      client.get('/admin/terms'),
+    ])
+      .then(([teachersResult, studentsResult, termsResult]) => {
+        if (cancelled) return;
+        if (teachersResult.status === 'fulfilled') setTeachers(teachersResult.value);
+        if (studentsResult.status === 'fulfilled') setStudents(studentsResult.value);
+        setTerms(termsResult.status === 'fulfilled' ? termsResult.value : fallbackTerms);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
+  const termOptions = useMemo(() => {
+    const values = new Map(terms.map((item) => [item.value, item.label ?? item.value]));
+    if (teacher.term && !values.has(teacher.term)) values.set(teacher.term, teacher.term);
+    return Array.from(values.entries()).map(([value, label]) => ({ value, label }));
+  }, [teacher.term, terms]);
+
+  const teacherOptions = useMemo(() => {
+    const currentId = detail.teacher?.teacher_id ?? detail.teacher?.id;
+    if (!currentId || teachers.some((item) => String(item.id) === String(currentId))) return teachers;
+    return [...teachers, { ...detail.teacher, id: currentId }];
+  }, [detail.teacher, teachers]);
+
+  const enrolledStudentIds = useMemo(() => new Set((detail.students ?? []).map((student) => Number(student.id))), [detail.students]);
+  const filteredStudents = useMemo(() => {
+    const query = studentSearch.trim().toLowerCase();
+    return students
+      .filter((student) => !enrolledStudentIds.has(Number(student.id)))
+      .filter((student) => {
+        if (!query) return true;
+        return [student.name, student.username, student.student_no, student.department_name, String(student.id)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query));
+      });
+  }, [enrolledStudentIds, studentSearch, students]);
+
+  async function saveSchedule(event) {
+    event.preventDefault();
+    setError('');
+    try {
+      await client.put(`/admin/courses/${course.id}/schedule`, schedule);
+      setMessage('排课已保存');
+      await onChanged();
+    } catch (err) {
+      setError(err.message ?? '排课保存失败');
+    }
+  }
+
+  async function saveTeacher(event) {
+    event.preventDefault();
+    setError('');
+    try {
+      await client.put(`/admin/courses/${course.id}/teacher`, normalizeAdminForm(teacher));
+      setMessage('授课教师已保存');
+      await onChanged();
+    } catch (err) {
+      setError(err.message ?? '授课教师保存失败');
+    }
+  }
+
+  async function addSelectedStudents(event) {
+    event.preventDefault();
+    if (!selectedStudentIds.length) return;
+    setError('');
+    try {
+      for (const id of selectedStudentIds) {
+        await client.post(`/admin/courses/${course.id}/students`, { studentId: Number(id) });
+      }
+      setSelectedStudentIds([]);
+      setStudentSearch('');
+      setStudentDialogOpen(false);
+      setMessage('学生已加入课程');
+      await onChanged();
+    } catch (err) {
+      setError(err.message ?? '学生添加失败');
+    }
+  }
+
+  async function removeStudent(student) {
+    setError('');
+    try {
+      await client.delete(`/admin/courses/${course.id}/students/${student.id}`);
+      setMessage(`${student.name} 已移出课程`);
+      await onChanged();
+    } catch (err) {
+      setError(err.message ?? '学生移除失败');
+    }
+  }
+
+  function toggleStudent(id) {
+    setSelectedStudentIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  }
+
+  return (
+    <div className="adminPage">
+      <section className="pageHead detailHead">
+        <button className="iconButton" onClick={onBack} aria-label="返回课程列表"><ChevronLeft size={18} /></button>
+        <div>
+          <h1>{course.name}</h1>
+          <p>{course.code} · {course.department_name ?? '未设置院系'}</p>
+        </div>
+      </section>
+      {message && <div className="success">{message}</div>}
+      {error && <div className="error">{error}</div>}
+      <section className="panel courseSetupPanel">
+        <div className="panelHead"><h2><CalendarDays size={17} />课程安排</h2></div>
+        <form className="courseDetailSection" onSubmit={saveTeacher}>
+          <div>
+            <h3>授课安排</h3>
+          </div>
+          <div className="courseDetailFields">
+            <TeacherCombobox
+              teachers={teacherOptions}
+              selectedId={teacher.teacherId}
+              query={teacherSearch}
+              onQuery={setTeacherSearch}
+              onSelect={(teacherId) => setTeacher({ ...teacher, teacherId })}
+            />
+            <label>
+              学期
+              <select value={teacher.term} onChange={(event) => setTeacher({ ...teacher, term: event.target.value })}>
+                <option value="">请选择学期</option>
+                {termOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </label>
+          </div>
+          <div className="formActions"><button><Save size={16} />保存教师</button></div>
+        </form>
+        <form className="courseDetailSection" onSubmit={saveSchedule}>
+          <div>
+            <h3>排课管理</h3>
+          </div>
+          <div className="courseDetailFields">
+            <label>
+              星期
+              <select value={schedule.weekday} onChange={(event) => setSchedule({ ...schedule, weekday: event.target.value })}>
+                <option value="">请选择星期</option>
+                {weekDays.map((weekday) => <option key={weekday} value={weekday}>{weekday}</option>)}
+              </select>
+            </label>
+            <label>开始时间<input type="time" value={schedule.startTime} onChange={(event) => setSchedule({ ...schedule, startTime: event.target.value })} /></label>
+            <label>结束时间<input type="time" value={schedule.endTime} onChange={(event) => setSchedule({ ...schedule, endTime: event.target.value })} /></label>
+            <label>上课地点<input value={schedule.location} onChange={(event) => setSchedule({ ...schedule, location: event.target.value })} /></label>
+          </div>
+          <div className="formActions"><button><Save size={16} />保存排课</button></div>
+        </form>
+      </section>
+      <section className="panel">
+        <div className="panelHead rosterHead">
+          <h2>选课学生名单</h2>
+          <div className="rosterActions">
+            {!hasSavedTeacher && <span className="muted">请先保存授课安排后添加学生</span>}
+            <button type="button" disabled={!hasSavedTeacher} onClick={() => setStudentDialogOpen(true)}>
+              <Plus size={16} />添加学生
+            </button>
+          </div>
+        </div>
+        <div className="tableWrap">
+          <table>
+            <thead><tr><th>姓名</th><th>学号</th><th>院系</th><th>操作</th></tr></thead>
+            <tbody>
+              {(detail.students ?? []).map((student) => (
+                <tr key={student.id}>
+                  <td>{student.name}</td>
+                  <td>{student.student_no}</td>
+                  <td>{student.department_name}</td>
+                  <td>
+                    <button type="button" className="ghost dangerButton" aria-label={`移除 ${student.name}`} onClick={() => removeStudent(student)}>
+                      <X size={15} />移除
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!(detail.students ?? []).length && <tr><td colSpan="4">暂无学生</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {studentDialogOpen && (
+        <StudentPickerDialog
+          students={filteredStudents}
+          search={studentSearch}
+          selectedStudentIds={selectedStudentIds}
+          onSearch={setStudentSearch}
+          onToggleStudent={toggleStudent}
+          onClose={() => {
+            setStudentDialogOpen(false);
+            setSelectedStudentIds([]);
+            setStudentSearch('');
+          }}
+          onConfirm={addSelectedStudents}
+        />
+      )}
+    </div>
+  );
+}
+
+function TeacherCombobox({ teachers, selectedId, query, onQuery, onSelect }) {
+  const [open, setOpen] = useState(false);
+  const selectedTeacher = teachers.find((teacher) => String(teacher.id) === String(selectedId));
+  const selectedLabel = selectedTeacher ? teacherOptionText(selectedTeacher) : '';
+  const filteredTeachers = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return teachers.filter((teacher) => {
+      if (!term) return true;
+      return [teacher.name, teacher.username, teacher.department_name, teacher.department, String(teacher.id)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+    });
+  }, [query, teachers]);
+
+  return (
+    <label className="comboField">
+      授课教师
+      <div className="comboBox">
+        <input
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="teacher-options"
+          value={open ? query : selectedLabel}
+          placeholder="输入教师姓名、账号或院系"
+          onFocus={() => {
+            setOpen(true);
+            onQuery('');
+          }}
+          onChange={(event) => {
+            setOpen(true);
+            onQuery(event.target.value);
+          }}
+        />
+        {open && (
+          <div className="comboMenu" id="teacher-options" role="listbox">
+            {filteredTeachers.map((teacher) => (
+              <button
+                type="button"
+                className="comboOption"
+                key={teacher.id}
+                role="option"
+                aria-selected={String(teacher.id) === String(selectedId)}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onSelect(String(teacher.id));
+                  onQuery('');
+                  setOpen(false);
+                }}
+              >
+                {teacherOptionText(teacher)}
+              </button>
+            ))}
+            {!filteredTeachers.length && <span className="comboEmpty">暂无匹配教师</span>}
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
+function StudentPickerDialog({ students, search, selectedStudentIds, onSearch, onToggleStudent, onClose, onConfirm }) {
+  return (
+    <div className="modalLayer">
+      <section className="modal studentPickerDialog" role="dialog" aria-modal="true" aria-label="添加选课学生">
+        <div className="modalHead">
+          <div>
+            <h2>添加选课学生</h2>
+            <p>搜索并勾选需要加入课程的学生。</p>
+          </div>
+          <button type="button" className="iconButton" onClick={onClose} aria-label="关闭添加学生"><X size={18} /></button>
+        </div>
+        <form className="modalBody" onSubmit={onConfirm}>
+          <label className="searchField">
+            搜索学生
+            <span>
+              <Search size={16} />
+              <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="搜索姓名、学号、账号或院系" />
+            </span>
+          </label>
+          <div className="tableWrap studentPickerTable">
+            <table>
+              <thead><tr><th>选择</th><th>姓名</th><th>学号</th><th>院系</th></tr></thead>
+              <tbody>
+                {students.map((student) => {
+                  const id = String(student.id);
+                  return (
+                    <tr key={student.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={`${student.name} ${student.student_no}`}
+                          checked={selectedStudentIds.includes(id)}
+                          onChange={() => onToggleStudent(id)}
+                        />
+                      </td>
+                      <td>{student.name}</td>
+                      <td>{student.student_no}</td>
+                      <td>{student.department_name}</td>
+                    </tr>
+                  );
+                })}
+                {!students.length && <tr><td colSpan="4">暂无可添加学生</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="formActions dialogActions">
+            <button type="button" className="ghost" onClick={onClose}>取消</button>
+            <button disabled={!selectedStudentIds.length}><Plus size={16} />确认添加</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function AdminResourcePage({ client, config }) {
+  const isStudentResource = config.title === '学生管理';
+  const isTeacherResource = config.title === '教师管理';
+  const [items, setItems] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [form, setForm] = useState(() => emptyAdminForm(config.fields));
+  const [query, setQuery] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('全部院系');
+  const [gradeFilter, setGradeFilter] = useState('全部年级');
+  const [studentDraftFilters, setStudentDraftFilters] = useState({ query: '', department: '全部院系', grade: '全部年级' });
+  const [studentAppliedFilters, setStudentAppliedFilters] = useState({ query: '', department: '全部院系', grade: '全部年级' });
+  const [teacherDraftFilters, setTeacherDraftFilters] = useState({ query: '', department: '全部院系' });
+  const [teacherAppliedFilters, setTeacherAppliedFilters] = useState({ query: '', department: '全部院系' });
+  const [studentDialogOpen, setStudentDialogOpen] = useState(false);
+  const [teacherDialogOpen, setTeacherDialogOpen] = useState(false);
+  const [studentPage, setStudentPage] = useState(1);
+  const [studentPageSize, setStudentPageSize] = useState(10);
+  const [teacherPage, setTeacherPage] = useState(1);
+  const [teacherPageSize, setTeacherPageSize] = useState(10);
+  const [editId, setEditId] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const grades = ['全部年级', ...Array.from(new Set(items.map((item) => item.grade).filter(Boolean)))];
+  const filteredItems = useMemo(() => {
+    if (isStudentResource) {
+      return filterStudentRows(items, studentAppliedFilters.query).filter((item) => {
+        const inDepartment = studentAppliedFilters.department === '全部院系' || item.department_name === studentAppliedFilters.department;
+        const inGrade = studentAppliedFilters.grade === '全部年级' || item.grade === studentAppliedFilters.grade;
+        return inDepartment && inGrade;
+      });
+    }
+    if (isTeacherResource) {
+      return filterTeacherRows(items, teacherAppliedFilters.query).filter((item) => {
+        const inDepartment = teacherAppliedFilters.department === '全部院系' || item.department_name === teacherAppliedFilters.department;
+        return inDepartment;
+      });
+    }
+    return filterRows(items, query).filter((item) => {
+      const inDepartment = departmentFilter === '全部院系' || item.department_name === departmentFilter;
+      return inDepartment;
+    });
+  }, [departmentFilter, isStudentResource, isTeacherResource, items, query, studentAppliedFilters, teacherAppliedFilters]);
+  const studentTotalPages = Math.max(1, Math.ceil(filteredItems.length / studentPageSize));
+  const teacherTotalPages = Math.max(1, Math.ceil(filteredItems.length / teacherPageSize));
+  const studentRows = isStudentResource
+    ? filteredItems.slice((studentPage - 1) * studentPageSize, studentPage * studentPageSize)
+    : filteredItems;
+  const teacherRows = isTeacherResource
+    ? filteredItems.slice((teacherPage - 1) * teacherPageSize, teacherPage * teacherPageSize)
+    : filteredItems;
+
+  useEffect(() => {
+    setForm(emptyAdminForm(config.fields));
+    setEditId(null);
+    setQuery('');
+    setDepartmentFilter('全部院系');
+    setGradeFilter('全部年级');
+    setStudentDraftFilters({ query: '', department: '全部院系', grade: '全部年级' });
+    setStudentAppliedFilters({ query: '', department: '全部院系', grade: '全部年级' });
+    setTeacherDraftFilters({ query: '', department: '全部院系' });
+    setTeacherAppliedFilters({ query: '', department: '全部院系' });
+    setStudentDialogOpen(false);
+    setTeacherDialogOpen(false);
+    setStudentPage(1);
+    setTeacherPage(1);
+    setMessage('');
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, config]);
+
+  useEffect(() => {
+    setStudentPage((current) => Math.min(current, studentTotalPages));
+  }, [studentTotalPages]);
+
+  useEffect(() => {
+    setTeacherPage((current) => Math.min(current, teacherTotalPages));
+  }, [teacherTotalPages]);
+
+  async function load() {
+    setLoading(true);
+    setError('');
+    try {
+      const [nextItems, nextDepartments] = await Promise.all([
+        client.get(config.endpoint),
+        client.get('/admin/departments'),
+      ]);
+      setItems(nextItems);
+      setDepartments(nextDepartments);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1125,6 +1760,7 @@ function AdminResourcePage({ client, config }) {
   async function submit(event) {
     event.preventDefault();
     setError('');
+    setMessage('');
     try {
       if (editId && !config.noEdit) {
         await client.put(`${config.endpoint}/${editId}`, normalizeAdminForm(form));
@@ -1133,6 +1769,8 @@ function AdminResourcePage({ client, config }) {
       }
       setEditId(null);
       setForm(emptyAdminForm(config.fields));
+      setStudentDialogOpen(false);
+      setTeacherDialogOpen(false);
       await load();
     } catch (err) {
       setError(err.message);
@@ -1141,6 +1779,7 @@ function AdminResourcePage({ client, config }) {
 
   async function remove(id) {
     setError('');
+    setMessage('');
     try {
       await client.delete(`${config.endpoint}/${id}`);
       if (editId === id) {
@@ -1156,6 +1795,177 @@ function AdminResourcePage({ client, config }) {
   function edit(row) {
     setEditId(row.id);
     setForm(Object.fromEntries(config.fields.map(([name]) => [name, adminFieldValue(row, name)])));
+    if (isStudentResource) setStudentDialogOpen(true);
+    if (isTeacherResource) setTeacherDialogOpen(true);
+  }
+
+  function openCreateStudent() {
+    setEditId(null);
+    setForm(emptyAdminForm(config.fields));
+    setStudentDialogOpen(true);
+  }
+
+  function openCreateTeacher() {
+    setEditId(null);
+    setForm(emptyAdminForm(config.fields));
+    setTeacherDialogOpen(true);
+  }
+
+  function closeStudentDialog() {
+    setStudentDialogOpen(false);
+    setEditId(null);
+    setForm(emptyAdminForm(config.fields));
+  }
+
+  function closeTeacherDialog() {
+    setTeacherDialogOpen(false);
+    setEditId(null);
+    setForm(emptyAdminForm(config.fields));
+  }
+
+  function applyStudentFilters() {
+    setStudentAppliedFilters(studentDraftFilters);
+    setStudentPage(1);
+  }
+
+  function resetStudentFilters() {
+    const emptyFilters = { query: '', department: '全部院系', grade: '全部年级' };
+    setStudentDraftFilters(emptyFilters);
+    setStudentAppliedFilters(emptyFilters);
+    setStudentPage(1);
+  }
+
+  function applyTeacherFilters() {
+    setTeacherAppliedFilters(teacherDraftFilters);
+    setTeacherPage(1);
+  }
+
+  function resetTeacherFilters() {
+    const emptyFilters = { query: '', department: '全部院系' };
+    setTeacherDraftFilters(emptyFilters);
+    setTeacherAppliedFilters(emptyFilters);
+    setTeacherPage(1);
+  }
+
+  async function resetTeacherPassword(row) {
+    setError('');
+    setMessage('');
+    if (!window.confirm(`确认将「${row.name}」的密码重置为 teacher123？`)) return;
+    try {
+      await client.post(`${config.endpoint}/${row.id}/reset-password`, {});
+      setMessage(`${row.name}的密码已重置为 teacher123`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  if (isStudentResource) {
+    return (
+      <div className="adminPage">
+        <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" onRefresh={load} />
+        {error && <div className="error">{error}</div>}
+        <AdminDataTable
+          rows={studentRows}
+          columns={config.columns}
+          loading={loading}
+          resourceTitle={config.title.replace(/管理$/, '')}
+          onEdit={config.noEdit ? null : edit}
+          onDelete={remove}
+          header={(
+            <StudentTableHeader
+              filters={studentDraftFilters}
+              onFilters={setStudentDraftFilters}
+              departments={departments}
+              grades={grades}
+              total={filteredItems.length}
+              onApply={applyStudentFilters}
+              onReset={resetStudentFilters}
+              onCreate={openCreateStudent}
+            />
+          )}
+          footer={(
+            <AdminPagination
+              total={filteredItems.length}
+              page={studentPage}
+              totalPages={studentTotalPages}
+              pageSize={studentPageSize}
+              onPage={setStudentPage}
+              onPageSize={(nextSize) => {
+                setStudentPageSize(nextSize);
+                setStudentPage(1);
+              }}
+            />
+          )}
+        />
+        {studentDialogOpen && (
+          <AdminResourceFormDialog
+            title={editId && !config.noEdit ? '编辑学生' : '新增学生'}
+            fields={config.fields}
+            form={form}
+            departments={departments}
+            submitLabel={editId && !config.noEdit ? '保存' : '新增'}
+            onForm={setForm}
+            onSubmit={submit}
+            onClose={closeStudentDialog}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (isTeacherResource) {
+    return (
+      <div className="adminPage">
+        <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" onRefresh={load} />
+        {error && <div className="error">{error}</div>}
+        {message && <div className="success">{message}</div>}
+        <AdminDataTable
+          rows={teacherRows}
+          columns={config.columns}
+          loading={loading}
+          resourceTitle={config.title.replace(/管理$/, '')}
+          onEdit={config.noEdit ? null : edit}
+          onDelete={remove}
+          onResetPassword={resetTeacherPassword}
+          header={(
+            <TeacherTableHeader
+              filters={teacherDraftFilters}
+              onFilters={setTeacherDraftFilters}
+              departments={departments}
+              total={filteredItems.length}
+              onApply={applyTeacherFilters}
+              onReset={resetTeacherFilters}
+              onCreate={openCreateTeacher}
+            />
+          )}
+          footer={(
+            <AdminPagination
+              total={filteredItems.length}
+              page={teacherPage}
+              totalPages={teacherTotalPages}
+              pageSize={teacherPageSize}
+              onPage={setTeacherPage}
+              onPageSize={(nextSize) => {
+                setTeacherPageSize(nextSize);
+                setTeacherPage(1);
+              }}
+            />
+          )}
+        />
+        {teacherDialogOpen && (
+          <AdminResourceFormDialog
+            title={editId && !config.noEdit ? '编辑教师' : '新增教师'}
+            fields={editId && !config.noEdit ? config.fields.filter(([name]) => name !== 'password') : config.fields}
+            form={form}
+            departments={departments}
+            submitLabel={editId && !config.noEdit ? '保存' : '新增'}
+            onForm={setForm}
+            onSubmit={submit}
+            onClose={closeTeacherDialog}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -1166,11 +1976,18 @@ function AdminResourcePage({ client, config }) {
           {config.fields.map(([name, label]) => (
             <label key={name}>
               {label}
-              <input
-                type={name === 'password' ? 'password' : 'text'}
-                value={form[name] ?? ''}
-                onChange={(event) => setForm({ ...form, [name]: event.target.value })}
-              />
+              {name === 'departmentId' ? (
+                <select value={form[name] ?? ''} onChange={(event) => setForm({ ...form, [name]: event.target.value })}>
+                  <option value="">请选择院系</option>
+                  {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={form[name] ?? ''}
+                  onChange={(event) => setForm({ ...form, [name]: event.target.value })}
+                />
+              )}
             </label>
           ))}
           <button type="submit">{editId && !config.noEdit ? <Save size={16} /> : <Plus size={16} />}{editId && !config.noEdit ? '保存' : '新增'}</button>
@@ -1178,7 +1995,16 @@ function AdminResourcePage({ client, config }) {
         </form>
         {error && <div className="error">{error}</div>}
       </section>
-      <AdminTableToolbar query={query} onQuery={setQuery} />
+      <AdminTableToolbar
+        query={query}
+        onQuery={setQuery}
+        departments={departments}
+        departmentFilter={departmentFilter}
+        onDepartmentFilter={setDepartmentFilter}
+        grades={config.title === '学生管理' ? grades : []}
+        gradeFilter={gradeFilter}
+        onGradeFilter={setGradeFilter}
+      />
       <AdminDataTable
         rows={filteredItems}
         columns={config.columns}
@@ -1191,99 +2017,6 @@ function AdminResourcePage({ client, config }) {
   );
 }
 
-function AdminReadonlyPage({ client, endpoint, title, subtitle, columns }) {
-  const [items, setItems] = useState([]);
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const filteredItems = useMemo(() => filterRows(items, query), [items, query]);
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, endpoint]);
-
-  async function load() {
-    setLoading(true);
-    setError('');
-    try {
-      setItems(await client.get(endpoint));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="adminPage">
-      <AdminPageHead title={title} subtitle={subtitle} icon={<FileText />} count={items.length} onRefresh={load} />
-      {error && <div className="error">{error}</div>}
-      <AdminTableToolbar query={query} onQuery={setQuery} />
-      <AdminDataTable rows={filteredItems} columns={columns} loading={loading} />
-    </div>
-  );
-}
-
-function AdminLeavePage({ client }) {
-  const [items, setItems] = useState([]);
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const filteredItems = useMemo(() => filterRows(items, query), [items, query]);
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client]);
-
-  async function load() {
-    setLoading(true);
-    setError('');
-    try {
-      setItems(await client.get('/admin/leave-requests'));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function review(id, approved) {
-    setError('');
-    try {
-      await client.post(`/admin/leave-requests/${id}/review`, { approved });
-      await load();
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  return (
-    <div className="adminPage">
-      <AdminPageHead title="特殊申报" subtitle="审核学生请假和特殊考勤申报。" icon={<FileText />} count={items.length} onRefresh={load} />
-      {error && <div className="error">{error}</div>}
-      <AdminTableToolbar query={query} onQuery={setQuery} />
-      <section className="panel adminReviewList">
-        {loading && <div className="empty">加载中</div>}
-        {!loading && filteredItems.map((leave) => (
-          <div className="review" key={leave.id}>
-            <span>{leave.student_name} · {leave.reason}</span>
-            <strong>{statusText(leave.status)}</strong>
-            {leave.status === 'PENDING' && (
-              <div className="actions">
-                <button onClick={() => review(leave.id, true)}><Check size={16} />通过</button>
-                <button className="ghost" onClick={() => review(leave.id, false)}>驳回</button>
-              </div>
-            )}
-          </div>
-        ))}
-        {!loading && !filteredItems.length && <div className="empty">暂无数据</div>}
-      </section>
-    </div>
-  );
-}
-
 function AdminPageHead({ title, subtitle, icon, count, onRefresh }) {
   return (
     <section className="pageHead adminHead">
@@ -1292,14 +2025,152 @@ function AdminPageHead({ title, subtitle, icon, count, onRefresh }) {
         <p>{subtitle}</p>
       </div>
       <div className="summaryStrip">
-        <span>{icon}{count} 条</span>
+        {count !== undefined && <span>{icon}{count} 条</span>}
         <button className="ghost" onClick={onRefresh}><RefreshCw size={16} />刷新</button>
       </div>
     </section>
   );
 }
 
-function AdminTableToolbar({ query, onQuery }) {
+function StudentTableHeader({ filters, onFilters, departments, grades, total, onApply, onReset, onCreate }) {
+  return (
+    <div className="studentTableHeader">
+      <div className="studentSearchBar">
+        <label className="searchField">
+          搜索
+          <span>
+            <Search size={16} />
+            <input
+              placeholder="请输入姓名或学号"
+              value={filters.query}
+              onChange={(event) => onFilters({ ...filters, query: event.target.value })}
+            />
+          </span>
+        </label>
+        <label>
+          院系
+          <select value={filters.department} onChange={(event) => onFilters({ ...filters, department: event.target.value })}>
+            <option>全部院系</option>
+            {departments.map((department) => <option key={department.id}>{department.name}</option>)}
+          </select>
+        </label>
+        <label>
+          年级
+          <select value={filters.grade} onChange={(event) => onFilters({ ...filters, grade: event.target.value })}>
+            {grades.map((grade) => <option key={grade}>{grade}</option>)}
+          </select>
+        </label>
+        <div className="studentSearchActions">
+          <button type="button" onClick={onApply}><Search size={16} />查询</button>
+          <button type="button" className="ghost" onClick={onReset}>重置</button>
+        </div>
+      </div>
+      <div className="studentTableActions">
+        <strong>共搜索到 {total} 位学生</strong>
+        <button type="button" onClick={onCreate}><Plus size={16} />新增学生</button>
+      </div>
+    </div>
+  );
+}
+
+function TeacherTableHeader({ filters, onFilters, departments, total, onApply, onReset, onCreate }) {
+  function submitFilters(event) {
+    event.preventDefault();
+    onApply();
+  }
+
+  return (
+    <div className="studentTableHeader">
+      <form className="studentSearchBar teacherSearchBar" onSubmit={submitFilters}>
+        <label className="searchField">
+          搜索
+          <span>
+            <Search size={16} />
+            <input
+              placeholder="请输入教师姓名或账号"
+              value={filters.query}
+              onChange={(event) => onFilters({ ...filters, query: event.target.value })}
+            />
+          </span>
+        </label>
+        <label>
+          院系
+          <select value={filters.department} onChange={(event) => onFilters({ ...filters, department: event.target.value })}>
+            <option>全部院系</option>
+            {departments.map((department) => <option key={department.id}>{department.name}</option>)}
+          </select>
+        </label>
+        <div className="studentSearchActions">
+          <button type="submit"><Search size={16} />查询</button>
+          <button type="button" className="ghost" onClick={onReset}>重置</button>
+        </div>
+      </form>
+      <div className="studentTableActions">
+        <strong>共 {total} 位教师</strong>
+        <button type="button" onClick={onCreate}><Plus size={16} />新增教师</button>
+      </div>
+    </div>
+  );
+}
+
+function AdminResourceFormDialog({ title, fields, form, departments, submitLabel, onForm, onSubmit, onClose }) {
+  const resourceName = title.includes('教师') ? '教师' : '学生';
+  return (
+    <div className="modalLayer">
+      <section className="modal adminResourceDialog" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modalHead">
+          <div>
+            <h2>{title}</h2>
+            <p>填写{resourceName}基础信息后保存。</p>
+          </div>
+          <button type="button" className="iconButton" onClick={onClose} aria-label={`关闭${title}`}><X size={18} /></button>
+        </div>
+        <form className="modalBody adminResourceForm" onSubmit={onSubmit}>
+          {fields.map(([name, label]) => (
+            <label key={name}>
+              {label}
+              {name === 'departmentId' ? (
+                <select value={form[name] ?? ''} onChange={(event) => onForm({ ...form, [name]: event.target.value })}>
+                  <option value="">请选择院系</option>
+                  {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={form[name] ?? ''}
+                  onChange={(event) => onForm({ ...form, [name]: event.target.value })}
+                />
+              )}
+            </label>
+          ))}
+          <div className="formActions dialogActions">
+            <button type="button" className="ghost" onClick={onClose}>取消</button>
+            <button type="submit">{submitLabel === '保存' ? <Save size={16} /> : <Plus size={16} />}{submitLabel}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function AdminPagination({ total, page, totalPages, pageSize, onPage, onPageSize }) {
+  return (
+    <div className="adminPagination">
+      <span>共 {total} 条</span>
+      <label>
+        每页条数
+        <select value={pageSize} onChange={(event) => onPageSize(Number(event.target.value))}>
+          {[10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
+        </select>
+      </label>
+      <button type="button" className="ghost" disabled={page <= 1} onClick={() => onPage(Math.max(1, page - 1))}>上一页</button>
+      <strong>第 {page} / {totalPages} 页</strong>
+      <button type="button" className="ghost" disabled={page >= totalPages} onClick={() => onPage(Math.min(totalPages, page + 1))}>下一页</button>
+    </div>
+  );
+}
+
+function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter, onDepartmentFilter, grades = [], gradeFilter, onGradeFilter }) {
   return (
     <section className="adminTableToolbar panel">
       <label className="searchField">
@@ -1309,14 +2180,32 @@ function AdminTableToolbar({ query, onQuery }) {
           <input placeholder="搜索当前表格" value={query} onChange={(event) => onQuery(event.target.value)} />
         </span>
       </label>
+      {departments.length > 0 && (
+        <label>
+          院系
+          <select value={departmentFilter} onChange={(event) => onDepartmentFilter(event.target.value)}>
+            <option>全部院系</option>
+            {departments.map((department) => <option key={department.id}>{department.name}</option>)}
+          </select>
+        </label>
+      )}
+      {grades.length > 0 && (
+        <label>
+          年级
+          <select value={gradeFilter} onChange={(event) => onGradeFilter(event.target.value)}>
+            {grades.map((grade) => <option key={grade}>{grade}</option>)}
+          </select>
+        </label>
+      )}
     </section>
   );
 }
 
-function AdminDataTable({ rows, columns, loading, resourceTitle = '', onEdit, onDelete }) {
-  const hasActions = Boolean(onEdit || onDelete);
+function AdminDataTable({ rows, columns, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null }) {
+  const hasActions = Boolean(onEdit || onDelete || onResetPassword);
   return (
     <div className="panel adminTablePanel">
+      {header}
       <div className="tableWrap">
         <table className="adminTable">
           <thead>
@@ -1334,6 +2223,7 @@ function AdminDataTable({ rows, columns, loading, resourceTitle = '', onEdit, on
                   <td>
                     <div className="actions">
                       {onEdit && <button type="button" className="ghost" aria-label={`编辑 ${resourceTitle} ${displayAdminRow(row)}`} onClick={() => onEdit(row)}><PenLine size={15} />编辑</button>}
+                      {onResetPassword && <button type="button" className="ghost" aria-label={`重置密码 ${resourceTitle} ${displayAdminRow(row)}`} onClick={() => onResetPassword(row)}><KeyRound size={15} />重置密码</button>}
                       {onDelete && <button type="button" className="ghost" aria-label={`删除 ${resourceTitle} ${displayAdminRow(row)}`} onClick={() => onDelete(row.id)}><X size={15} />删除</button>}
                     </div>
                   </td>
@@ -1344,17 +2234,18 @@ function AdminDataTable({ rows, columns, loading, resourceTitle = '', onEdit, on
           </tbody>
         </table>
       </div>
+      {footer}
     </div>
   );
 }
 
 function emptyAdminForm(fields) {
-  return Object.fromEntries(fields.map(([name]) => [name, name === 'password' ? 'password' : '']));
+  return Object.fromEntries(fields.map(([name]) => [name, '']));
 }
 
 function normalizeAdminForm(form) {
   return Object.fromEntries(Object.entries(form).map(([key, value]) => {
-    const numeric = ['classId', 'courseId', 'teacherId', 'assignmentId', 'studentId'].includes(key);
+    const numeric = ['classId', 'courseId', 'teacherId', 'assignmentId', 'studentId', 'departmentId'].includes(key);
     return [key, numeric && value !== '' ? Number(value) : value];
   }));
 }
@@ -1368,6 +2259,7 @@ function adminFieldValue(row, name) {
     teacherId: 'teacher_id',
     assignmentId: 'assignment_id',
     studentId: 'student_id',
+    departmentId: 'department_id',
   };
   return String(row[name] ?? row[map[name]] ?? '');
 }
@@ -1376,6 +2268,18 @@ function filterRows(rows, query) {
   const value = query.trim().toLowerCase();
   if (!value) return rows;
   return rows.filter((row) => Object.values(row).some((cell) => String(cell ?? '').toLowerCase().includes(value)));
+}
+
+function filterStudentRows(rows, query) {
+  const value = query.trim().toLowerCase();
+  if (!value) return rows;
+  return rows.filter((row) => [row.name, row.student_no].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
+}
+
+function filterTeacherRows(rows, query) {
+  const value = query.trim().toLowerCase();
+  if (!value) return rows;
+  return rows.filter((row) => [row.name, row.username].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
 }
 
 function displayAdminRow(row) {
@@ -1387,18 +2291,6 @@ function formatAdminCell(row, column) {
   if (column === 'source') return sourceText(row[column]);
   if (column === 'course_name' || column === 'name') return courseNameText(row[column]);
   return String(row[column] ?? '');
-}
-
-function Header({ title, subtitle, icon }) {
-  return (
-    <header className="header">
-      <div className="headerIcon">{icon}</div>
-      <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
-    </header>
-  );
 }
 
 function sessionTotals(sessions) {
@@ -1414,6 +2306,15 @@ function sessionTotals(sessions) {
 function formatDate(value) {
   if (!value) return '-';
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatToday() {
+  return new Date().toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  });
 }
 
 function formatSeconds(value) {

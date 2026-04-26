@@ -58,14 +58,291 @@ class QrAttendanceApiTest {
   }
 
   @Test
+  void adminCanCreateAndUpdateStudentGrade() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("年级学院-" + suffix);
+    String username = "student-grade-" + suffix;
+    String studentNo = "GRADE-" + suffix;
+
+    JsonNode student =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/admin/students")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "年级学生", "username", username, "password", "student123", "studentNo", studentNo, "departmentId", departmentId, "grade", "2026"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.grade", is("2026")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+    long studentId = student.get("id").asLong();
+    mvc.perform(
+            put("/api/admin/students/" + studentId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "年级学生", "studentNo", studentNo, "departmentId", departmentId, "grade", "2027"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.grade", is("2027")));
+
+    mvc.perform(get("/api/admin/students").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.student_no == '" + studentNo + "')].grade").value(org.hamcrest.Matchers.hasItem("2027")));
+  }
+
+  @Test
+  void adminDashboardAggregatesRealDepartmentCourseAndAttendanceData() throws Exception {
+    long suffix = System.nanoTime();
+    String adminToken = login("admin", "admin123");
+    long departmentId = createDepartment("智能技术学院-" + suffix);
+    long teacherId = createTeacher("teacher-dashboard-" + suffix, "teacher123", "仪表盘老师", departmentId);
+    long studentId = createStudent("student-dashboard-" + suffix, "仪表盘学生", "D" + suffix, departmentId);
+    long courseId = createCourse("仪表盘课程-" + suffix, "DASH-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, teacherId);
+    enroll(assignmentId, studentId);
+
+    String teacherToken = login("teacher-dashboard-" + suffix, "teacher123");
+    long sessionId = createSession(teacherToken, courseId);
+    jdbc.update(
+        "INSERT INTO attendance_records(session_id, student_id, status, checked_in_at, source) VALUES (?, ?, ?, ?, ?)",
+        sessionId,
+        studentId,
+        "LATE",
+        "2026-04-26T08:10:00Z",
+        "QR");
+
+    mvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.kpis.studentTotal").isNumber())
+        .andExpect(jsonPath("$.kpis.courseTotal").isNumber())
+        .andExpect(jsonPath("$.kpis.departmentTotal").isNumber())
+        .andExpect(jsonPath("$.distribution.late").isNumber())
+        .andExpect(jsonPath("$.trend.length()", is(7)))
+        .andExpect(jsonPath("$.courseAttendance[?(@.course_name == '仪表盘课程-" + suffix + "')].total").value(org.hamcrest.Matchers.hasItem(1)))
+        .andExpect(jsonPath("$.courseAttendance[?(@.course_name == '仪表盘课程-" + suffix + "')].late").value(org.hamcrest.Matchers.hasItem(1)))
+        .andExpect(jsonPath("$.recentActivities[?(@.student_name == '仪表盘学生')].status").value(org.hamcrest.Matchers.hasItem("LATE")));
+  }
+
+  @Test
+  void adminCanManageDepartmentBackedCourseDetailWithoutClassBinding() throws Exception {
+    String token = login("admin", "admin123");
+
+    JsonNode department =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/admin/departments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "人工智能学院"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("人工智能学院")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    long departmentId = department.get("id").asLong();
+
+    JsonNode teacher =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/admin/teachers")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "课程老师", "username", "course-teacher", "password", "teacher123", "departmentId", departmentId))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    long teacherId = teacher.get("id").asLong();
+
+    JsonNode student =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/admin/students")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "课程学生", "username", "course-student", "password", "student123", "studentNo", "C20260001", "departmentId", departmentId))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    long studentId = student.get("id").asLong();
+
+    JsonNode course =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/admin/courses")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "生成式 AI", "code", "GEN-AI", "departmentId", departmentId))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.department_name", is("人工智能学院")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    long courseId = course.get("id").asLong();
+
+    mvc.perform(
+            put("/api/admin/courses/" + courseId + "/schedule")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("weekday", "周二", "startTime", "14:00", "endTime", "15:40", "location", "教学楼A-301"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.location", is("教学楼A-301")));
+
+    mvc.perform(
+            put("/api/admin/courses/" + courseId + "/teacher")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("teacherId", teacherId, "term", "2026 春季"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.teacher_id", is((int) teacherId)));
+
+    mvc.perform(
+            post("/api/admin/courses/" + courseId + "/students")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("studentId", studentId))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.student_id", is((int) studentId)));
+
+    mvc.perform(get("/api/admin/courses/" + courseId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.course.name", is("生成式 AI")))
+        .andExpect(jsonPath("$.schedule.location", is("教学楼A-301")))
+        .andExpect(jsonPath("$.teacher.name", is("课程老师")))
+        .andExpect(jsonPath("$.students[0].name", is("课程学生")));
+  }
+
+  @Test
+  void adminCanFetchTermOptionsForCourseDetail() throws Exception {
+    String token = login("admin", "admin123");
+
+    mvc.perform(get("/api/admin/terms").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].value").isString())
+        .andExpect(jsonPath("$[0].label").isString())
+        .andExpect(jsonPath("$[?(@.value == '2025-2026学年 秋季学期')].label").value(org.hamcrest.Matchers.hasItem("2025-2026学年 秋季学期")));
+  }
+
+  @Test
+  void adminTeacherCreateCanRepairExistingOrphanTeacherUser() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("教师修复学院-" + suffix);
+    insertUser("teacher-orphan-" + suffix, "teacher123", "TEACHER", "孤立教师");
+
+    mvc.perform(
+            post("/api/admin/teachers")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "孤立教师", "username", "teacher-orphan-" + suffix, "password", "teacher123", "departmentId", departmentId))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.username", is("teacher-orphan-" + suffix)))
+        .andExpect(jsonPath("$.department_name", is("教师修复学院-" + suffix)));
+  }
+
+  @Test
+  void adminTeacherCreateReturnsConflictWhenUsernameAlreadyBelongsToTeacherProfile() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("教师账号冲突学院-" + suffix);
+    createTeacher("teacher-username-conflict-" + suffix, "teacher123", "已有账号教师", departmentId);
+
+    mvc.perform(
+            post("/api/admin/teachers")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "重复账号教师", "username", "teacher-username-conflict-" + suffix, "password", "teacher123", "departmentId", departmentId))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("账号")));
+  }
+
+  @Test
+  void adminCanResetTeacherPasswordToDefault() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("教师重置密码学院-" + suffix);
+    long teacherId = createTeacher("teacher-reset-" + suffix, "custompass", "重置密码教师", departmentId);
+
+    mvc.perform(post("/api/admin/teachers/" + teacherId + "/reset-password").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ok", is(true)));
+
+    login("teacher-reset-" + suffix, "teacher123");
+  }
+
+  @Test
+  void adminStudentCreateReturnsConflictWithoutLeavingOrphanUserWhenStudentNumberExists() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("冲突学院-" + suffix);
+    createStudent("student-existing-" + suffix, "已有学生", "DUP-" + suffix, departmentId);
+
+    mvc.perform(
+            post("/api/admin/students")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "重复学号学生", "username", "student-conflict-" + suffix, "password", "student123", "studentNo", "DUP-" + suffix, "departmentId", departmentId))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("学号")));
+
+    Integer orphanUsers =
+        jdbc.queryForObject(
+            """
+            SELECT COUNT(*)
+            FROM users u
+            LEFT JOIN students s ON s.user_id = u.id
+            WHERE u.username = ? AND s.id IS NULL
+            """,
+            Integer.class,
+            "student-conflict-" + suffix);
+    org.junit.jupiter.api.Assertions.assertEquals(0, orphanUsers);
+  }
+
+  @Test
+  void adminStudentCreateCanRepairExistingOrphanStudentUser() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("修复学院-" + suffix);
+    insertUser("student-orphan-" + suffix, "student123", "STUDENT", "孤立学生");
+
+    mvc.perform(
+            post("/api/admin/students")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "孤立学生", "username", "student-orphan-" + suffix, "password", "student123", "studentNo", "ORPHAN-" + suffix, "departmentId", departmentId))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.username", is("student-orphan-" + suffix)))
+        .andExpect(jsonPath("$.student_no", is("ORPHAN-" + suffix)));
+  }
+
+  @Test
+  void adminStudentCreateReturnsConflictWhenUsernameAlreadyBelongsToStudentProfile() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("账号冲突学院-" + suffix);
+    createStudent("student-username-conflict-" + suffix, "已有账号学生", "USER-" + suffix, departmentId);
+
+    mvc.perform(
+            post("/api/admin/students")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("name", "重复账号学生", "username", "student-username-conflict-" + suffix, "password", "student123", "studentNo", "USER-NEW-" + suffix, "departmentId", departmentId))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("账号")));
+  }
+
+  @Test
   void adminCanManageEnrollmentsAndSessionStatsUseExplicitRoster() throws Exception {
     long suffix = System.nanoTime();
     String adminToken = login("admin", "admin123");
-    long classId = createClass("测试选课班级-" + suffix, "2026");
-    long teacherId = createTeacher("teacher-enroll-" + suffix, "teacher123", "选课老师", "计算机学院");
-    long studentId = createStudent("student-enroll-" + suffix, "选课学生", "E" + suffix, classId);
-    createStudent("student-not-enrolled-" + suffix, "未选学生", "N" + suffix, classId);
-    long courseId = createCourse("选课测试课程-" + suffix, "ENROLL-" + suffix, classId);
+    long departmentId = createDepartment("测试选课学院-" + suffix);
+    long teacherId = createTeacher("teacher-enroll-" + suffix, "teacher123", "选课老师", departmentId);
+    long studentId = createStudent("student-enroll-" + suffix, "选课学生", "E" + suffix, departmentId);
+    createStudent("student-not-enrolled-" + suffix, "未选学生", "N" + suffix, departmentId);
+    long courseId = createCourse("选课测试课程-" + suffix, "ENROLL-" + suffix, departmentId);
     long assignmentId = createAssignment(courseId, teacherId);
 
     mvc.perform(
@@ -138,6 +415,7 @@ class QrAttendanceApiTest {
   @Test
   void teacherCourseWorkflowReturnsFullRecordsAndCanCloseSession() throws Exception {
     long extraStudentId = createStudent("student-extra", "王同学", "20230002", 1);
+    enroll(1, extraStudentId);
     String token = login("teacher1", "teacher123");
 
     mvc.perform(get("/api/teacher/courses").header("Authorization", "Bearer " + token))
@@ -196,7 +474,8 @@ class QrAttendanceApiTest {
 
   @Test
   void teacherProfileCanBeUpdatedAndPasswordChanged() throws Exception {
-    createTeacher("teacher-profile", "oldpass123", "赵老师", "数学学院");
+    long departmentId = createDepartment("数学学院");
+    createTeacher("teacher-profile", "oldpass123", "赵老师", departmentId);
     String token = login("teacher-profile", "oldpass123");
 
     mvc.perform(get("/api/teacher/profile").header("Authorization", "Bearer " + token))
@@ -321,8 +600,13 @@ class QrAttendanceApiTest {
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
 
-  private long createCourse(String name, String code, long classId) {
-    jdbc.update("INSERT INTO courses(name, code, class_id) VALUES (?, ?, ?)", name, code, classId);
+  private long createDepartment(String name) {
+    jdbc.update("INSERT INTO departments(name) VALUES (?)", name);
+    return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private long createCourse(String name, String code, long departmentId) {
+    jdbc.update("INSERT INTO courses(name, code, department_id) VALUES (?, ?, ?)", name, code, departmentId);
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
 
@@ -331,16 +615,20 @@ class QrAttendanceApiTest {
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
 
-  private long createStudent(String username, String name, String studentNo, long classId) {
+  private long createStudent(String username, String name, String studentNo, long departmentId) {
     long userId = insertUser(username, "student123", "STUDENT", name);
-    jdbc.update("INSERT INTO students(user_id, class_id, name, student_no) VALUES (?, ?, ?, ?)", userId, classId, name, studentNo);
+    jdbc.update("INSERT INTO students(user_id, department_id, name, student_no) VALUES (?, ?, ?, ?)", userId, departmentId, name, studentNo);
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
 
-  private long createTeacher(String username, String password, String name, String department) {
+  private long createTeacher(String username, String password, String name, long departmentId) {
     long userId = insertUser(username, password, "TEACHER", name);
-    jdbc.update("INSERT INTO teachers(user_id, name, department) VALUES (?, ?, ?)", userId, name, department);
+    jdbc.update("INSERT INTO teachers(user_id, name, department_id) VALUES (?, ?, ?)", userId, name, departmentId);
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private void enroll(long assignmentId, long studentId) {
+    jdbc.update("INSERT INTO course_enrollments(assignment_id, student_id) VALUES (?, ?)", assignmentId, studentId);
   }
 
   private long insertUser(String username, String password, String role, String displayName) {

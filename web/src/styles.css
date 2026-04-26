@@ -771,6 +771,494 @@ th {
   gap: 16px;
 }
 
+.adminDashboard {
+  display: grid;
+  gap: 18px;
+}
+
+.welcomeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 150px;
+  border: 1px solid #d7e7f7;
+  border-radius: 8px;
+  padding: 24px;
+  color: #0f172a;
+  background:
+    radial-gradient(circle at 88% 18%, rgba(37, 99, 235, 0.14), transparent 28%),
+    linear-gradient(135deg, #f7fbff 0%, #eaf4ff 54%, #f8fbff 100%);
+  box-shadow: 0 12px 34px rgba(30, 64, 175, 0.08);
+}
+
+.welcomeBanner h1 {
+  margin: 0;
+  font-size: 30px;
+}
+
+.welcomeBanner p {
+  margin: 8px 0 0;
+  color: #5d6b7d;
+}
+
+.adminKpiGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.adminKpiCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 104px;
+  border: 1px solid #dce6ef;
+  border-radius: 8px;
+  padding: 16px;
+  background: white;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.adminKpiIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.adminKpiIcon.blue {
+  color: #2563eb;
+  background: #dbeafe;
+}
+
+.adminKpiIcon.green {
+  color: #16a34a;
+  background: #dcfce7;
+}
+
+.adminKpiIcon.red {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.adminKpiIcon.orange {
+  color: #d97706;
+  background: #ffedd5;
+}
+
+.adminKpiCard p {
+  margin: 0 0 7px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.adminKpiCard strong {
+  color: #0f172a;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.dashboardCharts,
+.dashboardLower,
+.courseDetailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  gap: 18px;
+}
+
+.adminTrendChart {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+  min-height: 260px;
+  padding: 16px 8px 0;
+}
+
+.adminTrendColumn {
+  display: grid;
+  flex: 1;
+  height: 220px;
+  align-items: end;
+  justify-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.stackBar {
+  display: flex;
+  width: 38px;
+  min-height: 8px;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  border-radius: 8px 8px 3px 3px;
+  background: #e2e8f0;
+}
+
+.stackBar i,
+.legendList i {
+  display: block;
+}
+
+.present {
+  background: #16a34a;
+}
+
+.late {
+  background: #f59e0b;
+}
+
+.absent {
+  background: #ef4444;
+}
+
+.donutSummary {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  gap: 14px;
+}
+
+.donut {
+  display: grid;
+  width: 170px;
+  height: 170px;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.donut::before {
+  content: "";
+  grid-area: 1 / 1;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: white;
+}
+
+.donut span {
+  z-index: 1;
+  grid-area: 1 / 1;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.legendList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  color: #475569;
+  font-size: 13px;
+}
+
+.legendList span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendList i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.courseAttendanceRows,
+.activityList {
+  display: grid;
+  gap: 12px;
+}
+
+.courseAttendanceRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(130px, 0.8fr) 42px;
+  gap: 12px;
+  align-items: center;
+}
+
+.courseAttendanceRow strong {
+  color: #172026;
+}
+
+.courseAttendanceRow span,
+.courseAttendanceRow em {
+  color: #64748b;
+  font-style: normal;
+  font-size: 13px;
+}
+
+.progressBar {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.progressBar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #16a34a;
+}
+
+.plainLink {
+  min-height: auto;
+  padding: 0;
+  color: #2563eb;
+  background: transparent;
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: 34px minmax(80px, 1fr) minmax(90px, 1fr) minmax(150px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  color: #475569;
+  font-size: 13px;
+}
+
+.avatarMini {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  color: #176b5b;
+  background: #e6f2ee;
+  font-weight: 800;
+}
+
+.statusBadge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 9px;
+  color: #176b5b;
+  background: #dcfce7;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statusBadge.absent {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.statusBadge.late {
+  color: #b45309;
+  background: #ffedd5;
+}
+
+.adminCourseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.adminCourseCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #dce6ef;
+  border-radius: 8px;
+  padding: 18px;
+  background: white;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.adminCourseCard .ghost {
+  align-self: center;
+  justify-self: end;
+  min-width: 148px;
+}
+
+.adminCourseCard h2 {
+  margin: 6px 0 4px;
+  color: #0f172a;
+  font-size: 21px;
+}
+
+.adminCourseCard p,
+.adminCourseCard small {
+  color: #64748b;
+}
+
+.adminCourseCard p {
+  margin: 0 0 14px;
+}
+
+.adminCourseCard small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compactInlineForm {
+  grid-template-columns: minmax(160px, 260px) auto;
+  justify-content: start;
+}
+
+.courseSetupPanel {
+  gap: 0;
+}
+
+.courseDetailSection {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.24fr) minmax(0, 1fr);
+  gap: 16px 22px;
+  border-top: 1px solid #e2ebe7;
+  padding: 18px 0 0;
+}
+
+.courseDetailSection + .courseDetailSection {
+  margin-top: 18px;
+}
+
+.courseDetailSection h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.courseDetailFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.formActions {
+  display: flex;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+.rosterHead {
+  align-items: start;
+}
+
+.rosterActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.rosterAddForm {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(240px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.studentPickList {
+  display: flex;
+  min-height: 40px;
+  max-height: 96px;
+  align-items: center;
+  gap: 8px;
+  overflow: auto;
+  border: 1px solid #c8d4cf;
+  border-radius: 8px;
+  padding: 6px;
+  background: white;
+}
+
+.studentOption {
+  display: inline-flex;
+  width: auto;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #334155;
+  background: #f4f8f6;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.studentOption input {
+  width: auto;
+  min-height: auto;
+}
+
+.comboField {
+  position: relative;
+}
+
+.comboBox {
+  position: relative;
+}
+
+.comboMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #c8d4cf;
+  border-radius: 8px;
+  padding: 6px;
+  background: white;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+}
+
+.comboOption {
+  justify-content: flex-start;
+  min-height: 34px;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #334155;
+  background: transparent;
+  font-size: 13px;
+}
+
+.comboOption:hover,
+.comboOption[aria-selected="true"] {
+  color: #176b5b;
+  background: #e6f2ee;
+}
+
+.comboEmpty {
+  padding: 9px 10px;
+  color: #81918c;
+  font-size: 13px;
+}
+
+.dangerButton {
+  color: #b91c1c;
+}
+
+.studentPickerDialog {
+  width: min(860px, 100%);
+}
+
+.studentPickerTable table {
+  min-width: 620px;
+}
+
+.studentPickerTable input[type="checkbox"] {
+  width: 16px;
+  min-height: 16px;
+}
+
+.dialogActions {
+  grid-column: auto;
+  gap: 10px;
+}
+
 .adminHead {
   min-height: 104px;
 }
@@ -787,6 +1275,83 @@ th {
 
 .adminTablePanel {
   padding: 0;
+}
+
+.studentTableHeader {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 0;
+}
+
+.studentSearchBar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.3fr) minmax(150px, 0.8fr) minmax(130px, 0.7fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.teacherSearchBar {
+  grid-template-columns: minmax(240px, 1.3fr) minmax(150px, 0.8fr) auto;
+}
+
+.studentSearchActions,
+.studentTableActions,
+.adminPagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.studentSearchActions {
+  justify-content: flex-end;
+}
+
+.studentTableActions {
+  justify-content: space-between;
+  border-top: 1px solid #e4ece8;
+  padding-top: 14px;
+}
+
+.studentTableActions strong {
+  color: #334155;
+  font-size: 14px;
+}
+
+.adminResourceDialog {
+  width: min(640px, 100%);
+}
+
+.adminResourceForm {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.adminResourceForm .formActions {
+  grid-column: 1 / -1;
+}
+
+.adminPagination {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  border-top: 1px solid #e4ece8;
+  padding: 14px 18px 18px;
+  color: #52605b;
+  font-size: 13px;
+}
+
+.adminPagination label {
+  display: flex;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.adminPagination select {
+  width: 78px;
+}
+
+.adminPagination button {
+  min-height: 32px;
+  padding: 0 10px;
 }
 
 .adminTable {
@@ -860,9 +1425,16 @@ th {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .adminKpiGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .visualGrid,
   .profileGrid,
-  .grid.two {
+  .grid.two,
+  .dashboardCharts,
+  .dashboardLower,
+  .courseDetailGrid {
     grid-template-columns: 1fr;
   }
 }
@@ -907,8 +1479,17 @@ th {
 
   .toolbar,
   .attendanceLive,
-  .adminTableToolbar {
+  .adminTableToolbar,
+  .studentSearchBar,
+  .teacherSearchBar,
+  .adminResourceForm,
+  .courseDetailSection,
+  .rosterAddForm {
     grid-template-columns: 1fr;
+  }
+
+  .formActions {
+    grid-column: auto;
   }
 
   .courseCard {
@@ -920,6 +1501,21 @@ th {
   }
 
   .statGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .welcomeBanner,
+  .activityItem,
+  .courseAttendanceRow {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .welcomeBanner {
+    flex-direction: column;
+  }
+
+  .adminKpiGrid {
     grid-template-columns: 1fr;
   }
 }

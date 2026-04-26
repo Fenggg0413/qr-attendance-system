@@ -1,4 +1,10 @@
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api';
 
@@ -19,7 +25,7 @@ async function request(path, options = {}) {
     } catch {
       // 空响应保持 HTTP 状态文本。
     }
-    throw new ApiError(message);
+    throw new ApiError(message, response.status);
   }
   if (response.status === 204) return null;
   const text = await response.text();
