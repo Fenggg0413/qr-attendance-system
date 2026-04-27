@@ -16,3 +16,4 @@ app/local.properties
 *.iml
 .DS_Store
 CLAUDE.md
+.vscode/
