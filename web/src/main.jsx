@@ -12,18 +12,22 @@ import {
   Clock,
   Cloud,
   Download,
+  EyeOff,
   FileText,
   Fullscreen,
   KeyRound,
   Landmark,
   LogOut,
+  Maximize2,
   Menu,
+  Minimize2,
   PenLine,
   PieChart,
   Plus,
   RefreshCw,
   Save,
   Search,
+  Trash2,
   UserRound,
   UsersRound,
   X,
@@ -170,7 +174,7 @@ function App() {
     const raw = localStorage.getItem('qr-attendance-session');
     return raw ? JSON.parse(raw) : null;
   });
-  const [teacherView, setTeacherView] = useState('courses');
+  const [teacherView, setTeacherView] = useState('dashboard');
   const [adminView, setAdminView] = useState('dashboard');
   const [breadcrumb, setBreadcrumb] = useState(['首页', '我的课程']);
   const [collapsed, setCollapsed] = useState(false);
@@ -178,14 +182,14 @@ function App() {
   function onLogin(nextSession) {
     localStorage.setItem('qr-attendance-session', JSON.stringify(nextSession));
     setSession(nextSession);
-    setTeacherView('courses');
+    setTeacherView('dashboard');
     setAdminView('dashboard');
   }
 
   function logout() {
     localStorage.removeItem('qr-attendance-session');
     setSession(null);
-    setTeacherView('courses');
+    setTeacherView('dashboard');
     setAdminView('dashboard');
   }
 
@@ -206,7 +210,11 @@ function App() {
           </div>
           {isTeacher ? (
             <nav className="sideNav" aria-label="教师导航">
-              <button className={teacherView !== 'profile' ? 'active' : ''} onClick={() => setTeacherView('courses')}>
+              <button className={teacherView === 'dashboard' ? 'active' : ''} onClick={() => setTeacherView('dashboard')}>
+                <PieChart size={17} />
+                <span>仪表盘</span>
+              </button>
+              <button className={teacherView !== 'profile' && teacherView !== 'dashboard' ? 'active' : ''} onClick={() => setTeacherView('courses')}>
                 <BookOpen size={17} />
                 <span>我的课程</span>
               </button>
@@ -350,7 +358,7 @@ function LoginView({ onLogin }) {
         </label>
         {error && <div className="error">{error}</div>}
         <button disabled={loading}>{loading ? '登录中' : '登录'}</button>
-        <p className="hint">默认账号：管理员 admin/admin123，教师 teacher1/123456</p>
+        <p className="hint">默认账号：管理员 admin/admin123</p>
       </form>
     </main>
   );
@@ -371,7 +379,7 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
-    setBreadcrumb(['首页', view === 'profile' ? '个人中心' : selectedCourse ? '课程详情' : '我的课程']);
+    setBreadcrumb(['首页', view === 'dashboard' ? '仪表盘' : view === 'profile' ? '个人中心' : selectedCourse ? '课程详情' : '我的课程']);
   }, [setBreadcrumb, selectedCourse, view]);
 
   useEffect(() => {
@@ -438,9 +446,18 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
     }
   }
 
+  async function deleteSession(sessionId) {
+    await client.delete(`/teacher/attendance-sessions/${sessionId}`);
+    await refreshCourseData();
+  }
+
   async function openRecordsDrawer(sessionRow) {
     setDrawerSession(sessionRow);
     setDrawerRecords(await client.get(`/teacher/attendance-sessions/${sessionRow.id}/records`));
+  }
+
+  if (view === 'dashboard') {
+    return <TeacherDashboard client={client} session={session} onAuthExpired={logout} />;
   }
 
   if (view === 'profile') {
@@ -469,6 +486,7 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
           onStart={() => setModalCourse(detail ?? selectedCourse)}
           onOpenRecords={openRecordsDrawer}
           onStudentsChange={setStudents}
+          onDeleteSession={deleteSession}
         />
       )}
       {modalCourse && (
@@ -556,7 +574,7 @@ function CoursesWorkspace({ courses, error, onOpenDetail, onStart }) {
   );
 }
 
-function CourseDetail({ client, course, sessions, students, activeTab, loading, onBack, onTab, onStart, onOpenRecords, onStudentsChange }) {
+function CourseDetail({ client, course, sessions, students, activeTab, loading, onBack, onTab, onStart, onOpenRecords, onStudentsChange, onDeleteSession }) {
   const totals = sessionTotals(sessions);
   const latest = sessions[0];
 
@@ -616,7 +634,7 @@ function CourseDetail({ client, course, sessions, students, activeTab, loading, 
               <button className="ghost" disabled={!sessions.length} onClick={exportCsv}><Download size={16} />导出数据</button>
             </div>
           </div>
-          {loading ? <p className="hint">加载中</p> : <SessionsTable sessions={sessions} onOpenRecords={onOpenRecords} />}
+          {loading ? <p className="hint">加载中</p> : <SessionsTable sessions={sessions} onOpenRecords={onOpenRecords} onDelete={onDeleteSession} />}
         </section>
       )}
 
@@ -631,7 +649,7 @@ function CourseDetail({ client, course, sessions, students, activeTab, loading, 
   );
 }
 
-function SessionsTable({ sessions, onOpenRecords }) {
+function SessionsTable({ sessions, onOpenRecords, onDelete }) {
   if (!sessions.length) return <div className="empty">暂无考勤记录</div>;
   return (
     <div className="tableWrap">
@@ -654,7 +672,16 @@ function SessionsTable({ sessions, onOpenRecords }) {
               <td><span className={`pill ${row.status === 'OPEN' ? 'live' : ''}`}>{statusText(row.status)}</span></td>
               <td>{row.present_count ?? 0}</td>
               <td>{row.absent_count ?? 0}</td>
-              <td><button className="ghost" onClick={() => onOpenRecords(row)}>查看明细</button></td>
+              <td>
+                <div className="actions">
+                  <button className="ghost" onClick={() => onOpenRecords(row)}>查看明细</button>
+                  {onDelete && (
+                    <button className="ghost danger" onClick={() => { if (window.confirm('确定删除该考勤记录？删除后不可恢复。')) onDelete(row.id); }}>
+                    <Trash2 size={14} />删除
+                    </button>
+                  )}
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -665,7 +692,10 @@ function SessionsTable({ sessions, onOpenRecords }) {
 
 function StudentsPanel({ client, students, onStudentsChange }) {
   const [savingId, setSavingId] = useState(null);
+  const [keyword, setKeyword] = useState('');
   const sorted = [...students].sort((a, b) => `${a.student_no}${a.name}`.localeCompare(`${b.student_no}${b.name}`, 'zh-Hans-CN'));
+  const normalized = keyword.trim().toLowerCase();
+  const filtered = normalized ? sorted.filter((s) => s.name.toLowerCase().includes(normalized) || s.student_no.toLowerCase().includes(normalized)) : sorted;
 
   async function save(student) {
     setSavingId(student.id);
@@ -678,7 +708,15 @@ function StudentsPanel({ client, students, onStudentsChange }) {
     <section className="panel">
       <div className="panelHead">
         <h2><UsersRound size={17} />学生名单管理</h2>
-        <span className="muted">{students.length} 人</span>
+        <div className="panelHeadRight">
+          <label className="searchField compact">
+            <span>
+              <Search size={15} />
+              <input placeholder="搜索姓名或学号" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
+            </span>
+          </label>
+          <span className="muted">{filtered.length} / {students.length} 人</span>
+        </div>
       </div>
       <div className="tableWrap">
         <table>
@@ -691,7 +729,7 @@ function StudentsPanel({ client, students, onStudentsChange }) {
             </tr>
           </thead>
           <tbody>
-            {sorted.map((student) => (
+            {filtered.map((student) => (
               <tr key={student.id}>
                 <td>{student.student_no}</td>
                 <td>{student.name}</td>
@@ -710,6 +748,7 @@ function StudentsPanel({ client, students, onStudentsChange }) {
                 </td>
               </tr>
             ))}
+            {!filtered.length && <tr><td colSpan="4" className="empty">没有匹配的学生</td></tr>}
           </tbody>
         </table>
       </div>
@@ -769,6 +808,11 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
   const [error, setError] = useState('');
   const [ended, setEnded] = useState(false);
   const [remaining, setRemaining] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const presentCount = records.filter((r) => r.status === 'PRESENT' || r.status === 'LATE').length;
+  const totalCount = records.length;
+  const progressPct = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   useEffect(() => {
     if (!activeSession || ended) return undefined;
@@ -825,9 +869,31 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
 
   async function closeSession() {
     if (!activeSession) return;
+    if (!window.confirm('确定提前结束考勤？二维码将立即失效，未签到学生将记为缺勤。')) return;
     await client.post(`/teacher/attendance-sessions/${activeSession.id}/close`, {});
     setEnded(true);
     await onChanged();
+  }
+
+  if (fullscreen && qr?.payload) {
+    return (
+      <div className="qrFullscreen">
+        <div className="qrFullscreenInner">
+          <div className="qrFullscreenCountdown">
+            {ended ? '考勤已结束' : formatSeconds(remaining)}
+          </div>
+          <div className="qrQuietZone">
+            <QRCodeSVG value={qr.payload} size={Math.min(520, typeof window !== 'undefined' ? window.innerWidth * 0.6 : 400)} level="M" />
+          </div>
+          <div className="qrFullscreenStats">
+            已签到 {presentCount} / {totalCount} 人
+          </div>
+          <button className="qrFullscreenExit" onClick={() => setFullscreen(false)}>
+            <Minimize2 size={18} />退出全屏
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -838,45 +904,75 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
             <h2>发起考勤</h2>
             <p>{courseNameText(course.name)} · {course.class_name}</p>
           </div>
-          <button className="iconButton" onClick={onClose} aria-label="关闭弹窗"><X size={18} /></button>
+          <button className="iconButton" onClick={onClose} aria-label="隐藏窗口，考勤继续" title="隐藏窗口，考勤在后台继续"><X size={18} /></button>
         </div>
 
         {step === 1 ? (
-          <div className="modalBody">
-            <div className="fixedMethod">
-              <ClipboardCheck size={18} />
-              <div>
-                <strong>二维码考勤</strong>
-                <span>发起后展示动态二维码，学生扫码完成签到。</span>
+          <div className="modalScroll">
+            <div className="modalBody">
+              <div className="fixedMethod">
+                <ClipboardCheck size={18} />
+                <div>
+                  <strong>二维码考勤</strong>
+                  <span>发起后展示动态二维码，学生扫码完成签到。</span>
+                </div>
               </div>
-            </div>
-            <label>
-              开放时长
-              <input type="number" min="1" max="120" value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))} />
-            </label>
-            {error && <div className="error">{error}</div>}
-            <div className="actions right">
-              <button className="ghost" onClick={onClose}>取消</button>
-              <button onClick={start}>立即开始</button>
+              <label>
+                开放时长
+                <input type="number" min="1" max="120" value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))} />
+              </label>
+              {error && <div className="error">{error}</div>}
+              <div className="actions right">
+                <button className="ghost" onClick={onClose}>取消</button>
+                <button onClick={start}>立即开始</button>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="modalBody attendanceLive">
-            <div className="liveHeader">
-              <h3>动态签到码</h3>
-              <span className={ended ? 'pill' : 'pill live'}>{ended ? '考勤已结束' : `剩余 ${formatSeconds(remaining)}`}</span>
+          <>
+            <div className="modalScroll">
+              <div className="modalBody attendanceLive">
+                <div className="liveHeader">
+                  <h3>动态签到码</h3>
+                  <span className={ended ? 'pill' : 'pill live'}>{ended ? '考勤已结束' : `剩余 ${formatSeconds(remaining)}`}</span>
+                </div>
+                <div className="qrPanel">
+                  <div
+                    className={`qrPanelTop${!ended && qr?.payload ? ' qrClickable' : ''}`}
+                    onClick={!ended && qr?.payload ? () => setFullscreen(true) : undefined}
+                    title={!ended && qr?.payload ? '点击全屏展示二维码' : undefined}
+                  >
+                    {qr?.payload && <div className="qrQuietZone qrQuietZoneSm"><QRCodeSVG value={qr.payload} size={190} /></div>}
+                    {!ended && qr?.payload && (
+                      <div className="qrHoverOverlay">
+                        <span>点击放大</span>
+                      </div>
+                    )}
+                  </div>
+                  {qr?.expiresAt && <p className="hint">刷新时间：{new Date(qr.expiresAt).toLocaleTimeString()}</p>}
+                  {error && <div className="error">{error}</div>}
+                </div>
+                <div className="liveRight">
+                  <div className="liveStats">
+                    <div className="liveStatsText">
+                      <Check size={16} />
+                      <span>已签到 <strong>{presentCount}</strong> / {totalCount} 人</span>
+                      <em>{progressPct}%</em>
+                    </div>
+                    <div className="progressBar"><i style={{ width: `${progressPct}%` }} /></div>
+                  </div>
+                  <div className="liveScrollArea">
+                    <RecordsTable records={records} />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="qrPanel">
-              {qr?.payload && <QRCodeSVG value={qr.payload} size={190} />}
-              {qr?.expiresAt && <p className="hint">刷新时间：{new Date(qr.expiresAt).toLocaleTimeString()}</p>}
-              {error && <div className="error">{error}</div>}
+            <div className="modalFooter">
+              <button className="danger" disabled={ended} onClick={closeSession}>
+                提前结束考勤
+              </button>
             </div>
-            <RecordsTable records={records} />
-            <div className="actions right">
-              <button className="ghost" onClick={onClose}>关闭</button>
-              <button disabled={ended} onClick={closeSession}>提前结束考勤</button>
-            </div>
-          </div>
+          </>
         )}
       </section>
     </div>
@@ -894,13 +990,20 @@ function RecordsDrawer({ session, records, onClose }) {
           </div>
           <button className="iconButton" onClick={onClose} aria-label="关闭明细"><X size={18} /></button>
         </div>
-        <RecordsTable records={records} />
+        <div className="modalScroll">
+          <RecordsTable records={records} />
+        </div>
       </aside>
     </div>
   );
 }
 
 function RecordsTable({ records }) {
+  function pillClass(status) {
+    if (status === 'PRESENT' || status === 'LATE') return 'pill present';
+    if (status === 'ABSENT') return 'pill danger';
+    return 'pill';
+  }
   return (
     <div className="tableWrap compactTable">
       <table>
@@ -918,7 +1021,7 @@ function RecordsTable({ records }) {
             <tr key={`${record.student_id}-${record.id ?? 'absent'}`}>
               <td>{record.student_name}</td>
               <td>{record.student_no}</td>
-              <td><span className="pill">{statusText(record.status)}</span></td>
+              <td><span className={pillClass(record.status)}>{statusText(record.status)}</span></td>
               <td>{sourceText(record.source)}</td>
               <td>{record.checked_in_at ? new Date(record.checked_in_at).toLocaleTimeString() : '-'}</td>
             </tr>
@@ -1045,6 +1148,80 @@ function StatCard({ icon, value, label }) {
         <strong>{value}</strong>
         <p>{label}</p>
       </div>
+    </div>
+  );
+}
+
+function TeacherDashboard({ client, session, onAuthExpired }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    client.get('/teacher/dashboard')
+      .then((next) => {
+        if (!cancelled) setData(next);
+      })
+      .catch((err) => {
+        if (err.status === 401) {
+          onAuthExpired();
+          return;
+        }
+        if (!cancelled) setError(err.message ?? '仪表盘加载失败');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, onAuthExpired]);
+
+  if (error) return <div className="error">{error}</div>;
+  if (!data) return <div className="panel">加载中</div>;
+
+  const kpis = [
+    ['课程总数', data.kpis?.courseTotal ?? 0, BookOpen, 'blue'],
+    ['学生总数', data.kpis?.studentTotal ?? 0, UsersRound, 'blue'],
+    ['今日出勤', data.kpis?.todayPresent ?? 0, Check, 'green'],
+    ['今日缺勤', data.kpis?.todayAbsent ?? 0, X, 'red'],
+    ['今日迟到', data.kpis?.todayLate ?? 0, Clock, 'orange'],
+    ['考勤次数', data.kpis?.sessionTotal ?? 0, ClipboardCheck, 'green'],
+  ];
+
+  return (
+    <div className="adminDashboard">
+      <section className="welcomeBanner">
+        <div>
+          <h1>教师，您好</h1>
+          <p>{formatToday()} —— 这是您的今日考勤概览。</p>
+        </div>
+      </section>
+
+      <section className="adminKpiGrid">
+        {kpis.map(([label, value, Icon, tone]) => (
+          <article className="adminKpiCard" key={label}>
+            <span className={`adminKpiIcon ${tone}`}><Icon size={20} /></span>
+            <div>
+              <p>{label}</p>
+              <strong>{value}</strong>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className="dashboardCharts">
+        <div className="panel">
+          <div className="panelHead"><h2><BarChart3 size={17} />近 7 天出勤趋势</h2></div>
+          <TrendChart rows={data.trend ?? []} />
+        </div>
+        <div className="panel">
+          <div className="panelHead"><h2><PieChart size={17} />总体出勤状态分布</h2></div>
+          <DonutSummary distribution={data.distribution ?? {}} />
+        </div>
+      </section>
+
+      <section className="dashboardLower">
+        <CourseAttendanceTable rows={data.courseAttendance ?? []} />
+        <RecentActivities rows={data.recentActivities ?? []} />
+      </section>
     </div>
   );
 }
@@ -1359,10 +1536,8 @@ function AdminCoursesPage({ client }) {
                 <th>院系</th>
                 <th>授课教师</th>
                 <th>学期</th>
-                <th>上课时间</th>
-                <th>地点</th>
                 <th>选课人数</th>
-                <th>操作</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -1374,9 +1549,7 @@ function AdminCoursesPage({ client }) {
                   <td>{course.code}</td>
                   <td>{course.department_name ?? '未设置院系'}</td>
                   <td>{course.teacher_name ?? '未分配'}</td>
-                  <td>{course.term ?? '未设置'}</td>
-                  <td>{formatCourseSchedule(course)}</td>
-                  <td>{course.location ?? '未排课'}</td>
+                  <td>{course.term ?? '未设置'}</td>                 
                   <td>{Number(course.student_count ?? 0)} 人</td>
                   <td>
                     <button className="ghost" aria-label={`查看课程 ${course.name}`} onClick={() => openCourse(course)}>查看详情</button>
@@ -2258,7 +2431,7 @@ function AdminResourcePage({ client, config }) {
     setClassroomPage(1);
   }
 
-  async function resetTeacherPassword(row) {
+  async function resetPassword(row) {
     setError('');
     setMessage('');
     if (!window.confirm(`确认将「${row.name}」的密码重置为 123456？`)) return;
@@ -2271,10 +2444,15 @@ function AdminResourcePage({ client, config }) {
   }
 
   if (isStudentResource) {
+    const isEditingStudent = editId && !config.noEdit;
+    const studentDialogFields = isEditingStudent
+      ? config.fields.filter(([name]) => name !== 'username' && name !== 'password')
+      : config.fields;
     return (
       <div className="adminPage">
         <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" onRefresh={load} />
         {error && <div className="error">{error}</div>}
+        {message && <div className="success">{message}</div>}
         <AdminDataTable
           rows={displayedStudentRows}
           columns={config.columns}
@@ -2282,6 +2460,7 @@ function AdminResourcePage({ client, config }) {
           resourceTitle={config.title.replace(/管理$/, '')}
           onEdit={config.noEdit ? null : edit}
           onDelete={remove}
+          onResetPassword={resetPassword}
           header={(
             <StudentTableHeader
               filters={studentDraftFilters}
@@ -2310,11 +2489,11 @@ function AdminResourcePage({ client, config }) {
         />
         {studentDialogOpen && (
           <AdminResourceFormDialog
-            title={editId && !config.noEdit ? '编辑学生' : '新增学生'}
-            fields={config.fields}
+            title={isEditingStudent ? '编辑学生' : '新增学生'}
+            fields={studentDialogFields}
             form={form}
             departments={departments}
-            submitLabel={editId && !config.noEdit ? '保存' : '新增'}
+            submitLabel={isEditingStudent ? '保存' : '新增'}
             onForm={setForm}
             onSubmit={submit}
             onClose={closeStudentDialog}
@@ -2337,7 +2516,7 @@ function AdminResourcePage({ client, config }) {
           resourceTitle={config.title.replace(/管理$/, '')}
           onEdit={config.noEdit ? null : edit}
           onDelete={remove}
-          onResetPassword={resetTeacherPassword}
+          onResetPassword={resetPassword}
           header={(
             <TeacherTableHeader
               filters={teacherDraftFilters}
@@ -2366,7 +2545,7 @@ function AdminResourcePage({ client, config }) {
         {teacherDialogOpen && (
           <AdminResourceFormDialog
             title={editId && !config.noEdit ? '编辑教师' : '新增教师'}
-            fields={editId && !config.noEdit ? config.fields.filter(([name]) => name !== 'password') : config.fields}
+            fields={editId && !config.noEdit ? config.fields.filter(([name]) => name !== 'username' && name !== 'password') : config.fields}
             form={form}
             departments={departments}
             submitLabel={editId && !config.noEdit ? '保存' : '新增'}

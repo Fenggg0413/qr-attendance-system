@@ -332,6 +332,18 @@ public class AdminController {
     jdbc.update("DELETE FROM students WHERE id = ?", id);
   }
 
+  @PostMapping("/students/{id}/reset-password")
+  public Map<String, Object> resetStudentPassword(@PathVariable long id) {
+    admin();
+    long userId =
+        jdbc.queryForList("SELECT user_id FROM students WHERE id = ?", id).stream()
+            .findFirst()
+            .map(row -> ((Number) row.get("user_id")).longValue())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "学生不存在"));
+    jdbc.update("UPDATE users SET password_hash = ? WHERE id = ?", PasswordHasher.hash("123456"), userId);
+    return Map.of("ok", true);
+  }
+
   @GetMapping("/classes")
   public List<Map<String, Object>> classes() {
     admin();

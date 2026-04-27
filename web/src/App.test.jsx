@@ -48,7 +48,7 @@ test('login protects the portal until credentials are submitted', async () => {
   expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
-  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: /教师，您好/ })).toBeInTheDocument());
   expect(screen.getByText(/张老师/)).toBeInTheDocument();
   expect(global.fetch).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({ method: 'POST' }));
 });
@@ -76,6 +76,9 @@ test('teacher can filter courses and open detail tabs', async () => {
 
   const { container } = render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /教师，您好/ })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
   const summaryStrip = container.querySelector('.summaryStrip');
   expect(within(summaryStrip).getByText('课程 2')).toBeInTheDocument();
@@ -117,6 +120,9 @@ test('teacher can start attendance and view record drawer', async () => {
 
   render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /教师，您好/ })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
 
   await userEvent.click(screen.getAllByRole('button', { name: '发起考勤' })[0]);
@@ -488,6 +494,28 @@ function mockTeacherApi() {
     const method = options.method ?? 'GET';
     if (url.endsWith('/auth/login')) {
       return response({ token: 'jwt', user: { id: 10, username: 'teacher1', role: 'TEACHER', displayName: '张老师' } });
+    }
+    if (url.endsWith('/teacher/dashboard')) {
+      return response({
+        kpis: { courseTotal: 2, studentTotal: 3, todayPresent: 1, todayAbsent: 1, todayLate: 0, sessionTotal: 1 },
+        trend: [
+          { date: '2026-04-20', present: 1, absent: 0, late: 0 },
+          { date: '2026-04-21', present: 2, absent: 1, late: 0 },
+          { date: '2026-04-22', present: 1, absent: 0, late: 0 },
+          { date: '2026-04-23', present: 1, absent: 0, late: 0 },
+          { date: '2026-04-24', present: 2, absent: 0, late: 0 },
+          { date: '2026-04-25', present: 1, absent: 1, late: 0 },
+          { date: '2026-04-26', present: 1, absent: 1, late: 0 },
+        ],
+        distribution: { present: 9, absent: 3, late: 0, rate: 75 },
+        courseAttendance: [
+          { course_id: 1, course_name: 'Java Web 开发', total: 2, present: 5, absent: 2, late: 0 },
+          { course_id: 2, course_name: 'Data Structure', total: 1, present: 4, absent: 1, late: 0 },
+        ],
+        recentActivities: [
+          { id: 1, session_id: 9, student_name: '李同学', course_name: 'Java Web 开发', student_no: '20230001', checked_in_at: '2026-04-25T08:01:00Z', status: 'PRESENT' },
+        ],
+      });
     }
     if (url.endsWith('/teacher/courses') && method === 'GET') return response(courses);
     if (url.endsWith('/teacher/courses/1') && method === 'GET') return response(courses[0]);
