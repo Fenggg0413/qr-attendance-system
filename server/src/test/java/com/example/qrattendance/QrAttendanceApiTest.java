@@ -341,7 +341,7 @@ class QrAttendanceApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.ok", is(true)));
 
-    login("teacher-reset-" + suffix, "teacher123");
+    login("teacher-reset-" + suffix, "123456");
   }
 
   @Test
