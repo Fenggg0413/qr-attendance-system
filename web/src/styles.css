@@ -581,6 +581,11 @@ th {
   background: #fee2e2;
 }
 
+.pill.neutral {
+  color: #52525b;
+  background: #f4f4f5;
+}
+
 .visualGrid,
 .profileGrid,
 .grid.two {
@@ -760,7 +765,7 @@ th {
 .attendanceLive {
   grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
   grid-template-rows: auto 1fr;
-  min-height: min(380px, 50vh);
+  height: 340px;
 }
 
 .attendanceLive .liveRight {

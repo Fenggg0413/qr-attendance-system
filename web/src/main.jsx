@@ -962,7 +962,7 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
                     <div className="progressBar"><i style={{ width: `${progressPct}%` }} /></div>
                   </div>
                   <div className="liveScrollArea">
-                    <RecordsTable records={records} />
+                    <RecordsTable records={records} ended={ended} />
                   </div>
                 </div>
               </div>
@@ -998,10 +998,10 @@ function RecordsDrawer({ session, records, onClose }) {
   );
 }
 
-function RecordsTable({ records }) {
+function RecordsTable({ records, ended = true }) {
   function pillClass(status) {
     if (status === 'PRESENT' || status === 'LATE') return 'pill present';
-    if (status === 'ABSENT') return 'pill danger';
+    if (status === 'ABSENT') return ended ? 'pill danger' : 'pill neutral';
     return 'pill';
   }
   return (
@@ -1021,7 +1021,7 @@ function RecordsTable({ records }) {
             <tr key={`${record.student_id}-${record.id ?? 'absent'}`}>
               <td>{record.student_name}</td>
               <td>{record.student_no}</td>
-              <td><span className={pillClass(record.status)}>{statusText(record.status)}</span></td>
+              <td><span className={pillClass(record.status)}>{status === 'ABSENT' && !ended ? '未签到' : statusText(record.status)}</span></td>
               <td>{sourceText(record.source)}</td>
               <td>{record.checked_in_at ? new Date(record.checked_in_at).toLocaleTimeString() : '-'}</td>
             </tr>
