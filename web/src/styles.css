@@ -719,6 +719,11 @@ th {
 .modalBody {
   display: grid;
   gap: 16px;
+  padding: 16px 20px;
+}
+
+.modalScroll .modalBody {
+  padding: 0;
 }
 
 /* Fixed footer with action buttons */
