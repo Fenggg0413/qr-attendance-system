@@ -37,12 +37,12 @@ const adminResources = {
     endpoint: '/admin/students',
     icon: UserRound,
     fields: [
-      ['name', '姓名'],
-      ['username', '账号'],
-      ['password', '初始密码'],
-      ['studentNo', '学号'],
-      ['grade', '年级'],
-      ['departmentId', '所属院系'],
+      ['name', '姓名', { required: true, placeholder: '请输入学生姓名' }],
+      ['username', '账号', { required: true, placeholder: '请输入登录账号' }],
+      ['password', '初始密码', { placeholder: '留空则使用默认密码 (123456)' }],
+      ['studentNo', '学号', { required: true, placeholder: '请输入学号' }],
+      ['grade', '年级', { required: true, type: 'year' }],
+      ['departmentId', '所属院系', { required: true }],
     ],
     columns: ['display_index', 'name', 'username', 'student_no', 'department_name', 'grade'],
   },
@@ -51,12 +51,24 @@ const adminResources = {
     endpoint: '/admin/teachers',
     icon: UsersRound,
     fields: [
-      ['name', '姓名'],
-      ['username', '账号'],
-      ['password', '初始密码'],
-      ['departmentId', '所属院系'],
+      ['name', '姓名', { required: true, placeholder: '请输入教师姓名' }],
+      ['username', '账号', { required: true, placeholder: '请输入登录账号' }],
+      ['password', '初始密码', { placeholder: '留空则使用默认密码 (123456)' }],
+      ['departmentId', '所属院系', { required: true }],
     ],
     columns: ['display_index', 'name', 'username', 'department_name'],
+  },
+  classrooms: {
+    title: '教室管理',
+    endpoint: '/admin/classrooms',
+    icon: Building2,
+    fields: [
+      ['name', '教室名称'],
+      ['building', '教学楼'],
+      ['capacity', '容量'],
+    ],
+    columns: ['display_index', 'name', 'building', 'capacity'],
+    labels: { name: '教室名称' },
   },
 };
 
@@ -64,6 +76,7 @@ const adminNav = [
   ['dashboard', '仪表盘', BarChart3],
   ['students', '学生管理', UserRound],
   ['teachers', '教师管理', UsersRound],
+  ['classrooms', '教室管理', Building2],
   ['courses', '课程管理', BookOpen],
 ];
 
@@ -81,6 +94,8 @@ const adminLabels = {
   course_name: '课程',
   teacher_name: '教师',
   term: '学期',
+  building: '教学楼',
+  capacity: '容量',
   student_name: '学生',
   source: '来源',
   status: '状态',
@@ -129,6 +144,18 @@ function teacherOptionText(teacher) {
 }
 
 const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+const scheduleWeekDays = weekDays.slice(0, 5);
+const schedulePeriods = [
+  { period: 1, time: '08:00\n08:45' },
+  { period: 2, time: '08:50\n09:35' },
+  { period: 3, time: '09:50\n10:35' },
+  { period: 4, time: '10:40\n11:25' },
+  { period: 5, time: '11:30\n12:15' },
+  { period: 6, time: '13:45\n14:30' },
+  { period: 7, time: '14:35\n15:20' },
+  { period: 8, time: '15:35\n16:20' },
+  { period: 9, time: '16:25\n17:10' },
+];
 const fallbackTerms = [
   { value: '2025-2026学年 秋季学期', label: '2025-2026学年 秋季学期' },
   { value: '2025-2026学年 春季学期', label: '2025-2026学年 春季学期' },
@@ -321,7 +348,7 @@ function LoginView({ onLogin }) {
         </label>
         {error && <div className="error">{error}</div>}
         <button disabled={loading}>{loading ? '登录中' : '登录'}</button>
-        <p className="hint">默认账号：管理员 admin/admin123，教师 teacher1/teacher123</p>
+        <p className="hint">默认账号：管理员 admin/admin123，教师 teacher1/123456</p>
       </form>
     </main>
   );
@@ -1435,17 +1462,38 @@ function CourseFormDialog({ form, departments, onForm, onSubmit, onClose }) {
           <button type="button" className="iconButton" onClick={onClose} aria-label="关闭创建课程"><X size={18} /></button>
         </div>
         <form className="modalBody adminResourceForm" onSubmit={onSubmit}>
-          <label>课程名称<input value={form.name} onChange={(event) => onForm({ ...form, name: event.target.value })} /></label>
-          <label>课程代码<input value={form.code} onChange={(event) => onForm({ ...form, code: event.target.value })} /></label>
           <label>
-            院系
-            <select value={form.departmentId} onChange={(event) => onForm({ ...form, departmentId: event.target.value })}>
+            <span className="requiredLabel"><i>*</i>课程名称</span>
+            <input
+              placeholder="请输入课程名称"
+              required
+              value={form.name}
+              onChange={(event) => onForm({ ...form, name: event.target.value })}
+            />
+          </label>
+          <label>
+            <span className="requiredLabel"><i>*</i>课程代码</span>
+            <input
+              placeholder="请输入课程代码，如：CS101"
+              required
+              value={form.code}
+              onChange={(event) => onForm({ ...form, code: event.target.value })}
+            />
+          </label>
+          <label className="fullWidthField">
+            <span className="requiredLabel"><i>*</i>所属院系</span>
+            <select
+              required
+              value={form.departmentId}
+              onChange={(event) => onForm({ ...form, departmentId: event.target.value })}
+            >
+              <option value="">请选择所属院系</option>
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
             </select>
           </label>
           <div className="formActions dialogActions">
             <button type="button" className="ghost" onClick={onClose}>取消</button>
-            <button type="submit"><Save size={16} />保存课程</button>
+            <button type="submit">确定</button>
           </div>
         </form>
       </section>
@@ -1456,17 +1504,12 @@ function CourseFormDialog({ form, departments, onForm, onSubmit, onClose }) {
 function AdminCourseDetail({ client, detail, onBack, onChanged }) {
   const course = detail.course ?? {};
   const hasSavedTeacher = Boolean(detail.teacher?.teacher_id ?? detail.teacher?.id);
-  const [schedule, setSchedule] = useState({
-    weekday: detail.schedule?.weekday ?? '',
-    startTime: detail.schedule?.start_time ?? '',
-    endTime: detail.schedule?.end_time ?? '',
-    location: detail.schedule?.location ?? '',
-  });
   const [teacher, setTeacher] = useState({
     teacherId: detail.teacher?.teacher_id ?? detail.teacher?.id ?? '',
     term: detail.teacher?.term ?? '',
   });
   const [teachers, setTeachers] = useState([]);
+  const [classrooms, setClassrooms] = useState([]);
   const [students, setStudents] = useState([]);
   const [terms, setTerms] = useState([]);
   const [teacherSearch, setTeacherSearch] = useState('');
@@ -1475,14 +1518,9 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
+  const [slotEditor, setSlotEditor] = useState(null);
 
   useEffect(() => {
-    setSchedule({
-      weekday: detail.schedule?.weekday ?? '',
-      startTime: detail.schedule?.start_time ?? '',
-      endTime: detail.schedule?.end_time ?? '',
-      location: detail.schedule?.location ?? '',
-    });
     setTeacher({
       teacherId: detail.teacher?.teacher_id ?? detail.teacher?.id ?? '',
       term: detail.teacher?.term ?? '',
@@ -1490,6 +1528,7 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
     setSelectedStudentIds([]);
     setStudentSearch('');
     setStudentDialogOpen(false);
+    setSlotEditor(null);
   }, [detail]);
 
   useEffect(() => {
@@ -1498,12 +1537,14 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
       client.get('/admin/teachers'),
       client.get('/admin/students'),
       client.get('/admin/terms'),
+      client.get('/admin/classrooms'),
     ])
-      .then(([teachersResult, studentsResult, termsResult]) => {
+      .then(([teachersResult, studentsResult, termsResult, classroomsResult]) => {
         if (cancelled) return;
         if (teachersResult.status === 'fulfilled') setTeachers(teachersResult.value);
         if (studentsResult.status === 'fulfilled') setStudents(studentsResult.value);
         setTerms(termsResult.status === 'fulfilled' ? termsResult.value : fallbackTerms);
+        if (classroomsResult.status === 'fulfilled') setClassrooms(classroomsResult.value);
       });
     return () => {
       cancelled = true;
@@ -1522,6 +1563,18 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
     return [...teachers, { ...detail.teacher, id: currentId }];
   }, [detail.teacher, teachers]);
 
+  const assignedTeachers = useMemo(() => {
+    const courseTeachers = detail.teachers?.length ? detail.teachers : (detail.teacher?.id || detail.teacher?.teacher_id ? [detail.teacher] : []);
+    return courseTeachers.map((item) => ({ ...item, id: item.teacher_id ?? item.id }));
+  }, [detail.teacher, detail.teachers]);
+
+  const scheduleSlots = detail.scheduleSlots ?? [];
+  const slotsByKey = useMemo(() => {
+    const map = new Map();
+    for (const slot of scheduleSlots) map.set(`${slot.weekday}-${slot.period}`, slot);
+    return map;
+  }, [scheduleSlots]);
+
   const enrolledStudentIds = useMemo(() => new Set((detail.students ?? []).map((student) => Number(student.id))), [detail.students]);
   const filteredStudents = useMemo(() => {
     const query = studentSearch.trim().toLowerCase();
@@ -1534,18 +1587,6 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
           .some((value) => String(value).toLowerCase().includes(query));
       });
   }, [enrolledStudentIds, studentSearch, students]);
-
-  async function saveSchedule(event) {
-    event.preventDefault();
-    setError('');
-    try {
-      await client.put(`/admin/courses/${course.id}/schedule`, schedule);
-      setMessage('排课已保存');
-      await onChanged();
-    } catch (err) {
-      setError(err.message ?? '排课保存失败');
-    }
-  }
 
   async function saveTeacher(event) {
     event.preventDefault();
@@ -1592,8 +1633,56 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
     setSelectedStudentIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
   }
 
+  function openSlotEditor(weekday, period, slot) {
+    const defaultTeacherId = slot?.teacher_id ?? teacher.teacherId ?? assignedTeachers[0]?.id ?? teacherOptions[0]?.id ?? '';
+    const defaultClassroomId = slot?.classroom_id ?? classrooms[0]?.id ?? '';
+    setError('');
+    setSlotEditor({
+      id: slot?.id,
+      weekday,
+      period,
+      teacherId: defaultTeacherId ? String(defaultTeacherId) : '',
+      classroomId: defaultClassroomId ? String(defaultClassroomId) : '',
+      courseType: slot?.course_type ?? 'LECTURE',
+      error: '',
+    });
+  }
+
+  async function saveSlot(event) {
+    event.preventDefault();
+    if (!slotEditor) return;
+    const payload = {
+      ...(slotEditor.id ? { id: slotEditor.id } : {}),
+      weekday: slotEditor.weekday,
+      period: slotEditor.period,
+      teacherId: Number(slotEditor.teacherId),
+      classroomId: Number(slotEditor.classroomId),
+      courseType: slotEditor.courseType,
+    };
+    try {
+      await client.put(`/admin/courses/${course.id}/schedule-slots`, payload);
+      setSlotEditor(null);
+      setMessage('排课已保存');
+      await onChanged();
+    } catch (err) {
+      setSlotEditor((current) => current ? { ...current, error: err.message ?? '排课保存失败' } : current);
+    }
+  }
+
+  async function deleteSlot() {
+    if (!slotEditor?.id) return;
+    try {
+      await client.delete(`/admin/courses/${course.id}/schedule-slots/${slotEditor.id}`);
+      setSlotEditor(null);
+      setMessage('排课已删除');
+      await onChanged();
+    } catch (err) {
+      setSlotEditor((current) => current ? { ...current, error: err.message ?? '排课删除失败' } : current);
+    }
+  }
+
   return (
-    <div className="adminPage">
+    <div className="adminPage courseManagementDetail">
       <section className="pageHead detailHead">
         <button className="iconButton" onClick={onBack} aria-label="返回课程列表"><ChevronLeft size={18} /></button>
         <div>
@@ -1603,6 +1692,20 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
       </section>
       {message && <div className="success">{message}</div>}
       {error && <div className="error">{error}</div>}
+      <section className="courseDetailStats">
+        <div className="statCard compactStat">
+          <span className="eyebrow">授课教师</span>
+          <strong>{assignedTeachers.length || (hasSavedTeacher ? 1 : 0)}</strong>
+        </div>
+        <div className="statCard compactStat">
+          <span className="eyebrow">每周课时</span>
+          <strong>{scheduleSlots.length}</strong>
+        </div>
+        <div className="statCard compactStat">
+          <span className="eyebrow">选课学生</span>
+          <strong>{detail.students?.length ?? 0}</strong>
+        </div>
+      </section>
       <section className="panel courseSetupPanel">
         <div className="panelHead"><h2><CalendarDays size={17} />课程安排</h2></div>
         <form className="courseDetailSection" onSubmit={saveTeacher}>
@@ -1627,24 +1730,47 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
           </div>
           <div className="formActions"><button><Save size={16} />保存教师</button></div>
         </form>
-        <form className="courseDetailSection" onSubmit={saveSchedule}>
+        <section className="courseDetailSection">
           <div>
             <h3>排课管理</h3>
           </div>
-          <div className="courseDetailFields">
-            <label>
-              星期
-              <select value={schedule.weekday} onChange={(event) => setSchedule({ ...schedule, weekday: event.target.value })}>
-                <option value="">请选择星期</option>
-                {weekDays.map((weekday) => <option key={weekday} value={weekday}>{weekday}</option>)}
-              </select>
-            </label>
-            <label>开始时间<input type="time" value={schedule.startTime} onChange={(event) => setSchedule({ ...schedule, startTime: event.target.value })} /></label>
-            <label>结束时间<input type="time" value={schedule.endTime} onChange={(event) => setSchedule({ ...schedule, endTime: event.target.value })} /></label>
-            <label>上课地点<input value={schedule.location} onChange={(event) => setSchedule({ ...schedule, location: event.target.value })} /></label>
+          <div className="scheduleGrid" aria-label="排课网格">
+            <div className="scheduleCorner" />
+            {scheduleWeekDays.map((weekday) => <div key={weekday} className="scheduleHead">{weekday}</div>)}
+            {schedulePeriods.map(({ period, time }) => (
+              <React.Fragment key={period}>
+                <div className="schedulePeriod">
+                  <strong>{period}</strong>
+                  <span>{time.split('\n').map((line) => <React.Fragment key={line}>{line}<br /></React.Fragment>)}</span>
+                </div>
+                {scheduleWeekDays.map((weekday) => {
+                  const slot = slotsByKey.get(`${weekday}-${period}`);
+                  const typeText = slot?.course_type === 'LAB' ? '实验' : '讲课';
+                  const label = slot
+                    ? `编辑排课 ${weekday} 第${period}节 ${slot.teacher_name} ${slot.classroom_name} ${typeText}`
+                    : `排课 ${weekday} 第${period}节`;
+                  return (
+                    <button
+                      type="button"
+                      key={`${weekday}-${period}`}
+                      className={slot ? `scheduleSlot filled ${slot.course_type === 'LAB' ? 'labSlot' : 'lectureSlot'}` : 'scheduleSlot emptySlot'}
+                      aria-label={label}
+                      onClick={() => openSlotEditor(weekday, period, slot)}
+                    >
+                      {slot ? (
+                        <>
+                          <strong>{typeText}</strong>
+                          <span>{slot.teacher_name}</span>
+                          <em>{slot.classroom_name}</em>
+                        </>
+                      ) : <Plus size={16} />}
+                    </button>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </div>
-          <div className="formActions"><button><Save size={16} />保存排课</button></div>
-        </form>
+        </section>
       </section>
       <section className="panel">
         <div className="panelHead rosterHead">
@@ -1692,6 +1818,77 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
           onConfirm={addSelectedStudents}
         />
       )}
+      {slotEditor && (
+        <ScheduleSlotDialog
+          slot={slotEditor}
+          teachers={teacherOptions}
+          classrooms={classrooms}
+          onSlot={setSlotEditor}
+          onSubmit={saveSlot}
+          onDelete={deleteSlot}
+          onClose={() => setSlotEditor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ScheduleSlotDialog({ slot, teachers, classrooms, onSlot, onSubmit, onDelete, onClose }) {
+  const [teacherQuery, setTeacherQuery] = useState('');
+  return (
+    <div className="modalLayer">
+      <section className="modal scheduleSlotDialog" role="dialog" aria-modal="true" aria-label="编辑排课">
+        <div className="modalHead">
+          <div>
+            <h2>编辑排课</h2>
+            <p>{slot.weekday} · 第 {slot.period} 节</p>
+          </div>
+          <button type="button" className="iconButton" onClick={onClose} aria-label="关闭排课编辑"><X size={18} /></button>
+        </div>
+        <form className="modalBody" onSubmit={onSubmit}>
+          {slot.error && <div className="error">{slot.error}</div>}
+          <TeacherCombobox
+            teachers={teachers}
+            selectedId={slot.teacherId}
+            query={teacherQuery}
+            onQuery={setTeacherQuery}
+            onSelect={(teacherId) => onSlot((current) => ({ ...current, teacherId }))}
+          />
+          <label>
+            教室
+            <select value={slot.classroomId} onChange={(event) => onSlot((current) => ({ ...current, classroomId: event.target.value }))}>
+              <option value="">请选择教室</option>
+              {classrooms.map((classroom) => <option key={classroom.id} value={classroom.id}>{classroom.name}</option>)}
+            </select>
+          </label>
+          <fieldset className="segmentedField">
+            <legend>课程类型</legend>
+            <label>
+              <input
+                type="radio"
+                name="courseType"
+                checked={slot.courseType === 'LECTURE'}
+                onChange={() => onSlot((current) => ({ ...current, courseType: 'LECTURE' }))}
+              />
+              <span>讲课</span>
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="courseType"
+                checked={slot.courseType === 'LAB'}
+                onChange={() => onSlot((current) => ({ ...current, courseType: 'LAB' }))}
+              />
+              <span>实验</span>
+            </label>
+          </fieldset>
+          <div className="formActions dialogActions">
+            {slot.id && <button type="button" className="ghost dangerButton" onClick={onDelete}>删除排课</button>}
+            <button type="button" className="ghost" onClick={onClose}>取消</button>
+            <button type="submit" disabled={!slot.teacherId || !slot.classroomId}><Save size={16} />保存排课</button>
+          </div>
+        </form>
+      </section>
     </div>
   );
 }
@@ -1814,6 +2011,7 @@ function StudentPickerDialog({ students, search, selectedStudentIds, onSearch, o
 function AdminResourcePage({ client, config }) {
   const isStudentResource = config.title === '学生管理';
   const isTeacherResource = config.title === '教师管理';
+  const isClassroomResource = config.title === '教室管理';
   const [items, setItems] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [form, setForm] = useState(() => emptyAdminForm(config.fields));
@@ -1826,16 +2024,22 @@ function AdminResourcePage({ client, config }) {
   const [teacherAppliedFilters, setTeacherAppliedFilters] = useState({ query: '', department: '全部院系' });
   const [studentDialogOpen, setStudentDialogOpen] = useState(false);
   const [teacherDialogOpen, setTeacherDialogOpen] = useState(false);
+  const [classroomDialogOpen, setClassroomDialogOpen] = useState(false);
   const [studentPage, setStudentPage] = useState(1);
   const [studentPageSize, setStudentPageSize] = useState(10);
   const [teacherPage, setTeacherPage] = useState(1);
   const [teacherPageSize, setTeacherPageSize] = useState(10);
+  const [classroomPage, setClassroomPage] = useState(1);
+  const [classroomPageSize, setClassroomPageSize] = useState(10);
+  const [classroomDraftFilters, setClassroomDraftFilters] = useState({ query: '', building: '全部教学楼' });
+  const [classroomAppliedFilters, setClassroomAppliedFilters] = useState({ query: '', building: '全部教学楼' });
   const [editId, setEditId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
   const grades = ['全部年级', ...Array.from(new Set(items.map((item) => item.grade).filter(Boolean)))];
+  const classroomBuildings = ['教一', '教二', '教三', '教四'];
   const filteredItems = useMemo(() => {
     if (isStudentResource) {
       return filterStudentRows(items, studentAppliedFilters.query).filter((item) => {
@@ -1850,13 +2054,20 @@ function AdminResourcePage({ client, config }) {
         return inDepartment;
       });
     }
+    if (isClassroomResource) {
+      return filterClassroomRows(items, classroomAppliedFilters.query).filter((item) => {
+        const inBuilding = classroomAppliedFilters.building === '全部教学楼' || item.building === classroomAppliedFilters.building;
+        return inBuilding;
+      });
+    }
     return filterRows(items, query).filter((item) => {
       const inDepartment = departmentFilter === '全部院系' || item.department_name === departmentFilter;
       return inDepartment;
     });
-  }, [departmentFilter, isStudentResource, isTeacherResource, items, query, studentAppliedFilters, teacherAppliedFilters]);
+  }, [departmentFilter, isStudentResource, isTeacherResource, isClassroomResource, items, query, studentAppliedFilters, teacherAppliedFilters, classroomAppliedFilters]);
   const studentTotalPages = Math.max(1, Math.ceil(filteredItems.length / studentPageSize));
   const teacherTotalPages = Math.max(1, Math.ceil(filteredItems.length / teacherPageSize));
+  const classroomTotalPages = Math.max(1, Math.ceil(filteredItems.length / classroomPageSize));
   const studentRows = isStudentResource
     ? filteredItems.slice((studentPage - 1) * studentPageSize, studentPage * studentPageSize)
     : filteredItems;
@@ -1869,6 +2080,12 @@ function AdminResourcePage({ client, config }) {
   const displayedTeacherRows = isTeacherResource
     ? teacherRows.map((row, index) => ({ ...row, display_index: (teacherPage - 1) * teacherPageSize + index + 1 }))
     : teacherRows;
+  const classroomRows = isClassroomResource
+    ? filteredItems.slice((classroomPage - 1) * classroomPageSize, classroomPage * classroomPageSize)
+    : filteredItems;
+  const displayedClassroomRows = isClassroomResource
+    ? classroomRows.map((row, index) => ({ ...row, display_index: (classroomPage - 1) * classroomPageSize + index + 1 }))
+    : classroomRows;
 
   useEffect(() => {
     setForm(emptyAdminForm(config.fields));
@@ -1882,8 +2099,12 @@ function AdminResourcePage({ client, config }) {
     setTeacherAppliedFilters({ query: '', department: '全部院系' });
     setStudentDialogOpen(false);
     setTeacherDialogOpen(false);
+    setClassroomDialogOpen(false);
     setStudentPage(1);
     setTeacherPage(1);
+    setClassroomPage(1);
+    setClassroomDraftFilters({ query: '', building: '全部教学楼' });
+    setClassroomAppliedFilters({ query: '', building: '全部教学楼' });
     setMessage('');
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1892,6 +2113,10 @@ function AdminResourcePage({ client, config }) {
   useEffect(() => {
     setStudentPage((current) => Math.min(current, studentTotalPages));
   }, [studentTotalPages]);
+
+  useEffect(() => {
+    setClassroomPage((current) => Math.min(current, classroomTotalPages));
+  }, [classroomTotalPages]);
 
   useEffect(() => {
     setTeacherPage((current) => Math.min(current, teacherTotalPages));
@@ -1928,6 +2153,7 @@ function AdminResourcePage({ client, config }) {
       setForm(emptyAdminForm(config.fields));
       setStudentDialogOpen(false);
       setTeacherDialogOpen(false);
+      setClassroomDialogOpen(false);
       await load();
     } catch (err) {
       setError(err.message);
@@ -1954,6 +2180,7 @@ function AdminResourcePage({ client, config }) {
     setForm(Object.fromEntries(config.fields.map(([name]) => [name, adminFieldValue(row, name)])));
     if (isStudentResource) setStudentDialogOpen(true);
     if (isTeacherResource) setTeacherDialogOpen(true);
+    if (isClassroomResource) setClassroomDialogOpen(true);
   }
 
   function openCreateStudent() {
@@ -2004,13 +2231,37 @@ function AdminResourcePage({ client, config }) {
     setTeacherPage(1);
   }
 
+  function openCreateClassroom() {
+    setEditId(null);
+    setForm(emptyAdminForm(config.fields));
+    setClassroomDialogOpen(true);
+  }
+
+  function closeClassroomDialog() {
+    setClassroomDialogOpen(false);
+    setEditId(null);
+    setForm(emptyAdminForm(config.fields));
+  }
+
+  function applyClassroomFilters() {
+    setClassroomAppliedFilters(classroomDraftFilters);
+    setClassroomPage(1);
+  }
+
+  function resetClassroomFilters() {
+    const emptyFilters = { query: '', building: '全部教学楼' };
+    setClassroomDraftFilters(emptyFilters);
+    setClassroomAppliedFilters(emptyFilters);
+    setClassroomPage(1);
+  }
+
   async function resetTeacherPassword(row) {
     setError('');
     setMessage('');
-    if (!window.confirm(`确认将「${row.name}」的密码重置为 teacher123？`)) return;
+    if (!window.confirm(`确认将「${row.name}」的密码重置为 123456？`)) return;
     try {
       await client.post(`${config.endpoint}/${row.id}/reset-password`, {});
-      setMessage(`${row.name}的密码已重置为 teacher123`);
+      setMessage(`${row.name}的密码已重置为 123456`);
     } catch (err) {
       setError(err.message);
     }
@@ -2125,9 +2376,62 @@ function AdminResourcePage({ client, config }) {
     );
   }
 
+  if (isClassroomResource) {
+    return (
+      <div className="adminPage">
+        <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" onRefresh={load} />
+        {error && <div className="error">{error}</div>}
+        <AdminDataTable
+          rows={displayedClassroomRows}
+          columns={config.columns}
+          labels={config.labels}
+          loading={loading}
+          resourceTitle={config.title.replace(/管理$/, '')}
+          onEdit={config.noEdit ? null : edit}
+          onDelete={remove}
+          header={(
+            <ClassroomTableHeader
+              filters={classroomDraftFilters}
+              onFilters={setClassroomDraftFilters}
+              buildings={classroomBuildings}
+              total={filteredItems.length}
+              onApply={applyClassroomFilters}
+              onReset={resetClassroomFilters}
+              onCreate={openCreateClassroom}
+            />
+          )}
+          footer={(
+            <AdminPagination
+              total={filteredItems.length}
+              page={classroomPage}
+              totalPages={classroomTotalPages}
+              pageSize={classroomPageSize}
+              onPage={setClassroomPage}
+              onPageSize={(nextSize) => {
+                setClassroomPageSize(nextSize);
+                setClassroomPage(1);
+              }}
+            />
+          )}
+        />
+        {classroomDialogOpen && (
+          <ClassroomFormDialog
+            title={editId && !config.noEdit ? '编辑教室' : '新增教室'}
+            form={form}
+            buildings={classroomBuildings}
+            isEdit={Boolean(editId && !config.noEdit)}
+            onForm={setForm}
+            onSubmit={submit}
+            onClose={closeClassroomDialog}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="adminPage">
-      <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" icon={<config.icon />} count={items.length} onRefresh={load} />
+      <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" onRefresh={load} />
       <section className="panel adminEditor">
         <form className="inlineForm" onSubmit={submit}>
           {config.fields.map(([name, label]) => (
@@ -2155,7 +2459,7 @@ function AdminResourcePage({ client, config }) {
       <AdminTableToolbar
         query={query}
         onQuery={setQuery}
-        departments={departments}
+        departments={config.fields.some(([name]) => name === 'departmentId') ? departments : []}
         departmentFilter={departmentFilter}
         onDepartmentFilter={setDepartmentFilter}
         grades={config.title === '学生管理' ? grades : []}
@@ -2163,8 +2467,9 @@ function AdminResourcePage({ client, config }) {
         onGradeFilter={setGradeFilter}
       />
       <AdminDataTable
-        rows={filteredItems}
+        rows={filteredItems.map((row, index) => ({ ...row, display_index: index + 1 }))}
         columns={config.columns}
+        labels={config.labels}
         loading={loading}
         resourceTitle={config.title.replace(/管理$/, '')}
         onEdit={config.noEdit ? null : edit}
@@ -2270,8 +2575,121 @@ function TeacherTableHeader({ filters, onFilters, departments, total, onApply, o
   );
 }
 
+function ClassroomTableHeader({ filters, onFilters, buildings, total, onApply, onReset, onCreate }) {
+  function submitFilters(event) {
+    event.preventDefault();
+    onApply();
+  }
+
+  return (
+    <div className="studentTableHeader">
+      <form className="studentSearchBar teacherSearchBar" onSubmit={submitFilters}>
+        <label className="searchField">
+          搜索
+          <span>
+            <Search size={16} />
+            <input
+              placeholder="请输入教室名称，如：101"
+              value={filters.query}
+              onChange={(event) => onFilters({ ...filters, query: event.target.value })}
+            />
+          </span>
+        </label>
+        <label>
+          教学楼
+          <select value={filters.building} onChange={(event) => onFilters({ ...filters, building: event.target.value })}>
+            <option>全部教学楼</option>
+            {buildings.map((building) => <option key={building}>{building}</option>)}
+          </select>
+        </label>
+        <div className="studentSearchActions">
+          <button type="submit"><Search size={16} />查询</button>
+          <button type="button" className="ghost" onClick={onReset}>重置</button>
+        </div>
+      </form>
+      <div className="studentTableActions">
+        <strong>共 {total} 间教室</strong>
+        <button type="button" onClick={onCreate}><Plus size={16} />新增教室</button>
+      </div>
+    </div>
+  );
+}
+
+function ClassroomFormDialog({ title, form, buildings, isEdit, onForm, onSubmit, onClose }) {
+  return (
+    <div className="modalLayer">
+      <section className="modal classroomDialog" role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modalHead">
+          <div>
+            <h2>{title}</h2>
+            <p>填写教室基础信息后保存。</p>
+          </div>
+          <button type="button" className="iconButton" onClick={onClose} aria-label={`关闭${title}`}><X size={18} /></button>
+        </div>
+        <form className="modalBody classroomForm" onSubmit={onSubmit}>
+          <label>
+            <span className="requiredLabel"><i>*</i>教室名称</span>
+            <input
+              type="text"
+              placeholder="请输入，如：101"
+              value={form.name ?? ''}
+              onChange={(event) => onForm({ ...form, name: event.target.value })}
+              required
+            />
+          </label>
+          <label>
+            <span className="requiredLabel"><i>*</i>教学楼</span>
+            <select
+              value={form.building ?? ''}
+              onChange={(event) => onForm({ ...form, building: event.target.value })}
+              required
+            >
+              <option value="">请选择所属教学楼</option>
+              {buildings.map((building) => <option key={building} value={building}>{building}</option>)}
+            </select>
+          </label>
+          <label>
+            <span className="requiredLabel"><i>*</i>容量</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              placeholder="请输入容纳人数"
+              value={form.capacity ?? ''}
+              onChange={(event) => onForm({ ...form, capacity: event.target.value })}
+              required
+            />
+          </label>
+          <div className="formActions dialogActions">
+            <button type="button" className="ghost" onClick={onClose}>取消</button>
+            <button type="submit"><Save size={16} />{isEdit ? '保存' : '确定'}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+const gradeYearOptions = (() => {
+  const current = new Date().getFullYear();
+  return Array.from({ length: 8 }, (_, i) => current - i);
+})();
+
+const fieldPlaceholders = {
+  name: '请输入姓名',
+  username: '请输入登录账号',
+  password: '留空则使用默认密码 (123456)',
+  studentNo: '请输入学号',
+  departmentId: '请选择所属院系',
+};
+
+const requiredFields = new Set(['name', 'username', 'studentNo', 'departmentId', 'grade']);
+
 function AdminResourceFormDialog({ title, fields, form, departments, submitLabel, onForm, onSubmit, onClose }) {
-  const resourceName = title.includes('教师') ? '教师' : '学生';
+  const resourceName = title.includes('教师') ? '教师' : title.includes('教室') ? '教室' : '学生';
+  // Determine if the last non-action field is odd-positioned (needs full-width)
+  const lastFieldIdx = fields.length - 1;
+  const lastFieldIsOdd = fields.length % 2 === 1;
   return (
     <div className="modalLayer">
       <section className="modal adminResourceDialog" role="dialog" aria-modal="true" aria-label={title}>
@@ -2283,26 +2701,50 @@ function AdminResourceFormDialog({ title, fields, form, departments, submitLabel
           <button type="button" className="iconButton" onClick={onClose} aria-label={`关闭${title}`}><X size={18} /></button>
         </div>
         <form className="modalBody adminResourceForm" onSubmit={onSubmit}>
-          {fields.map(([name, label]) => (
-            <label key={name}>
-              {label}
-              {name === 'departmentId' ? (
-                <select value={form[name] ?? ''} onChange={(event) => onForm({ ...form, [name]: event.target.value })}>
-                  <option value="">请选择院系</option>
-                  {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={form[name] ?? ''}
-                  onChange={(event) => onForm({ ...form, [name]: event.target.value })}
-                />
-              )}
-            </label>
-          ))}
+          {fields.map(([name, label, meta = {}], idx) => {
+            const isRequired = meta.required ?? requiredFields.has(name);
+            const placeholder = meta.placeholder ?? fieldPlaceholders[name] ?? '';
+            const isFullWidth = lastFieldIsOdd && idx === lastFieldIdx;
+            return (
+              <label key={name} className={isFullWidth ? 'fullWidthField' : ''}>
+                <span className="requiredLabel">
+                  {isRequired && <i>*</i>}{label}
+                </span>
+                {name === 'departmentId' ? (
+                  <select
+                    value={form[name] ?? ''}
+                    required={isRequired}
+                    onChange={(event) => onForm({ ...form, [name]: event.target.value })}
+                  >
+                    <option value="">请选择所属院系</option>
+                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                  </select>
+                ) : (meta.type === 'year' || name === 'grade') ? (
+                  <select
+                    value={form[name] ?? ''}
+                    required={isRequired}
+                    onChange={(event) => onForm({ ...form, [name]: event.target.value })}
+                  >
+                    <option value="">请选择入学年份</option>
+                    {gradeYearOptions.map((year) => (
+                      <option key={year} value={String(year)}>{year} 级</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={name === 'password' ? 'text' : 'text'}
+                    placeholder={placeholder}
+                    required={isRequired}
+                    value={form[name] ?? ''}
+                    onChange={(event) => onForm({ ...form, [name]: event.target.value })}
+                  />
+                )}
+              </label>
+            );
+          })}
           <div className="formActions dialogActions">
             <button type="button" className="ghost" onClick={onClose}>取消</button>
-            <button type="submit">{submitLabel === '保存' ? <Save size={16} /> : <Plus size={16} />}{submitLabel}</button>
+            <button type="submit">确定</button>
           </div>
         </form>
       </section>
@@ -2358,7 +2800,7 @@ function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter,
   );
 }
 
-function AdminDataTable({ rows, columns, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null }) {
+function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null }) {
   const hasActions = Boolean(onEdit || onDelete || onResetPassword);
   return (
     <div className="panel adminTablePanel">
@@ -2367,7 +2809,7 @@ function AdminDataTable({ rows, columns, loading, resourceTitle = '', onEdit, on
         <table className="adminTable">
           <thead>
             <tr>
-              {columns.map((column) => <th key={column}>{adminLabels[column] ?? column}</th>)}
+              {columns.map((column) => <th key={column}>{labels[column] ?? adminLabels[column] ?? column}</th>)}
               {hasActions && <th>操作</th>}
             </tr>
           </thead>
@@ -2437,6 +2879,12 @@ function filterTeacherRows(rows, query) {
   const value = query.trim().toLowerCase();
   if (!value) return rows;
   return rows.filter((row) => [row.name, row.username].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
+}
+
+function filterClassroomRows(rows, query) {
+  const value = query.trim().toLowerCase();
+  if (!value) return rows;
+  return rows.filter((row) => [row.name, row.building].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
 }
 
 function filterAdminCourses(courses, filters) {

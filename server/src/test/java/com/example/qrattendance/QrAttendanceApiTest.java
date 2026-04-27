@@ -233,6 +233,71 @@ class QrAttendanceApiTest {
   }
 
   @Test
+  void adminCanManageClassroomsAndCourseScheduleSlotsWithConflictChecks() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("排课学院-" + suffix);
+    long courseId = createCourse("排课课程-" + suffix, "SLOT-" + suffix, departmentId);
+    long otherCourseId = createCourse("冲突课程-" + suffix, "SLOT-OTHER-" + suffix, departmentId);
+    long teacherId = createTeacher("slot-teacher-" + suffix, "teacher123", "排课教师", departmentId);
+    long otherTeacherId = createTeacher("slot-other-teacher-" + suffix, "teacher123", "备用教师", departmentId);
+    createAssignment(courseId, teacherId);
+    createAssignment(otherCourseId, otherTeacherId);
+
+    JsonNode classroom =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/admin/classrooms")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("name", "实验楼 101-" + suffix, "building", "实验楼", "capacity", 60))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("实验楼 101-" + suffix)))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    long classroomId = classroom.get("id").asLong();
+
+    mvc.perform(get("/api/admin/classrooms").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.id == " + classroomId + ")].name").value(org.hamcrest.Matchers.hasItem("实验楼 101-" + suffix)));
+
+    mvc.perform(
+            put("/api/admin/courses/" + courseId + "/schedule-slots")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("weekday", "周一", "period", 1, "teacherId", teacherId, "classroomId", classroomId, "courseType", "LAB"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.weekday", is("周一")))
+        .andExpect(jsonPath("$.period", is(1)))
+        .andExpect(jsonPath("$.teacher_name", is("排课教师")))
+        .andExpect(jsonPath("$.classroom_name", is("实验楼 101-" + suffix)))
+        .andExpect(jsonPath("$.course_type", is("LAB")));
+
+    mvc.perform(get("/api/admin/courses/" + courseId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.teachers[0].name", is("排课教师")))
+        .andExpect(jsonPath("$.scheduleSlots[0].classroom_name", is("实验楼 101-" + suffix)))
+        .andExpect(jsonPath("$.scheduleSlots[0].course_type", is("LAB")));
+
+    mvc.perform(
+            put("/api/admin/courses/" + otherCourseId + "/schedule-slots")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("weekday", "周一", "period", 1, "teacherId", teacherId, "classroomId", classroomId, "courseType", "LECTURE"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("教师")));
+
+    mvc.perform(
+            put("/api/admin/courses/" + otherCourseId + "/schedule-slots")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("weekday", "周一", "period", 1, "teacherId", otherTeacherId, "classroomId", classroomId, "courseType", "LECTURE"))))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.message", containsString("教室")));
+  }
+
+  @Test
   void adminTeacherCreateCanRepairExistingOrphanTeacherUser() throws Exception {
     long suffix = System.nanoTime();
     String token = login("admin", "admin123");

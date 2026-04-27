@@ -1262,6 +1262,179 @@ th {
   color: #b91c1c;
 }
 
+.courseManagementDetail {
+  --course-surface: #fff;
+  --course-muted: #687873;
+  --slot-border: #dce6e2;
+}
+
+.courseDetailStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.compactStat {
+  min-height: 74px;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.compactStat strong {
+  color: #10201d;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.scheduleGrid {
+  display: grid;
+  grid-template-columns: 58px repeat(5, minmax(104px, 1fr));
+  gap: 1px;
+  overflow: auto;
+  border: 1px solid #dde7e3;
+  border-radius: 8px;
+  background: #dde7e3;
+}
+
+.scheduleCorner,
+.scheduleHead,
+.schedulePeriod,
+.scheduleSlot {
+  min-width: 0;
+  background: var(--course-surface);
+}
+
+.scheduleHead {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  color: #60716b;
+  background: #f7faf9;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.schedulePeriod {
+  display: grid;
+  min-height: 58px;
+  place-items: center;
+  padding: 6px 4px;
+  color: #697b75;
+  background: #f7faf9;
+  text-align: center;
+}
+
+.schedulePeriod strong {
+  color: #334155;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.schedulePeriod span {
+  color: #93a39f;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.scheduleSlot {
+  display: grid;
+  min-height: 58px;
+  border: 0;
+  border-radius: 0;
+  padding: 5px;
+  color: #334155;
+  box-shadow: none;
+}
+
+.scheduleSlot.emptySlot {
+  place-items: center;
+  color: #93a39f;
+  background: #fff;
+}
+
+.scheduleSlot.emptySlot:hover {
+  color: #176b5b;
+  background: #f2f7f5;
+}
+
+.scheduleSlot.filled {
+  align-content: center;
+  justify-items: start;
+  gap: 2px;
+  margin: 4px;
+  min-height: 50px;
+  border: 1px solid var(--slot-border);
+  border-radius: 6px;
+  text-align: left;
+}
+
+.scheduleSlot.filled strong {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.scheduleSlot.filled span,
+.scheduleSlot.filled em {
+  overflow: hidden;
+  max-width: 100%;
+  color: inherit;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.2;
+  opacity: 0.82;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scheduleSlot.lectureSlot {
+  color: #0f5f51;
+  background: #e1f5ee;
+}
+
+.scheduleSlot.labSlot {
+  color: #71340f;
+  background: #faeeda;
+}
+
+.scheduleSlotDialog {
+  width: min(480px, 100%);
+}
+
+.segmentedField {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.segmentedField legend {
+  width: 100%;
+  margin-bottom: 2px;
+  color: #52605b;
+  font-size: 13px;
+}
+
+.segmentedField label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #c8d4cf;
+  border-radius: 8px;
+  padding: 0 14px;
+  color: #334155;
+  background: #f7faf9;
+  cursor: pointer;
+}
+
+.segmentedField input {
+  width: auto;
+  min-height: auto;
+}
+
 .studentPickerDialog {
   width: min(860px, 100%);
 }
@@ -1348,6 +1521,30 @@ th {
 
 .adminResourceForm .formActions {
   grid-column: 1 / -1;
+}
+
+.adminResourceForm .fullWidthField {
+  grid-column: 1 / -1;
+}
+
+.classroomDialog {
+  width: min(480px, 100%);
+}
+
+.classroomForm {
+  grid-template-columns: 1fr;
+}
+
+.requiredLabel {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.requiredLabel i {
+  color: #ef4444;
+  font-style: normal;
+  font-weight: 700;
 }
 
 .adminPagination {
@@ -1446,6 +1643,10 @@ th {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .courseDetailStats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .adminKpiGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1523,6 +1724,10 @@ th {
   }
 
   .statGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .courseDetailStats {
     grid-template-columns: 1fr;
   }
 

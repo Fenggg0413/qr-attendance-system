@@ -169,6 +169,7 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   expect(screen.getByRole('button', { name: '仪表盘' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '学生管理' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '教师管理' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '教室管理' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '课程管理' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '选课名单' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '考勤统计' })).not.toBeInTheDocument();
@@ -179,6 +180,31 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   expect(screen.getByText('最近活动记录')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '标记考勤' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '添加学生' })).not.toBeInTheDocument();
+});
+
+test('admin can manage classrooms for schedule slot selection', async () => {
+  mockAdminApi();
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '教室管理' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '教室管理' })).toBeInTheDocument());
+  expect(screen.getByRole('columnheader', { name: '教室名称' })).toBeInTheDocument();
+  expect(screen.getByText('教学楼A-301')).toBeInTheDocument();
+  expect(screen.queryByLabelText('院系')).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText('教室名称'), '综合楼202');
+  await userEvent.type(screen.getByLabelText('教学楼'), '综合楼');
+  await userEvent.type(screen.getByLabelText('容量'), '64');
+  await userEvent.click(screen.getByRole('button', { name: '新增' }));
+
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/classrooms', expect.objectContaining({
+    method: 'POST',
+    body: JSON.stringify({ name: '综合楼202', building: '综合楼', capacity: '64' }),
+  })));
+  await waitFor(() => expect(screen.getByText('综合楼202')).toBeInTheDocument());
 });
 
 test('admin can filter students and open course detail management', async () => {
@@ -237,9 +263,10 @@ test('admin can filter students and open course detail management', async () => 
   expect(screen.getByText('排课管理')).toBeInTheDocument();
   expect(screen.queryByText('固定星期和时间格式，减少录入错误。')).not.toBeInTheDocument();
   expect(screen.queryByText('搜索教师姓名、账号或院系后选择授课人。')).not.toBeInTheDocument();
-  expect(screen.getByLabelText('星期').tagName).toBe('SELECT');
-  expect(screen.getByLabelText('开始时间')).toHaveAttribute('type', 'time');
-  expect(screen.getByLabelText('结束时间')).toHaveAttribute('type', 'time');
+  expect(screen.getByLabelText('排课网格')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '编辑排课 周二 第3节 李老师 教学楼A-301 讲课' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('开始时间')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('结束时间')).not.toBeInTheDocument();
   expect(screen.getByLabelText('学期').tagName).toBe('SELECT');
   expect(screen.queryByLabelText('教师 ID')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('搜索教师')).not.toBeInTheDocument();
@@ -247,7 +274,7 @@ test('admin can filter students and open course detail management', async () => 
   expect(screen.queryByLabelText('学生 ID')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('搜索学生')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '添加学生' })).toBeInTheDocument();
-  expect(screen.getByDisplayValue('教学楼A-301')).toBeInTheDocument();
+  expect(screen.getByText('教学楼A-301')).toBeInTheDocument();
   expect(screen.getByText('课程学生')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: '添加学生' }));
@@ -262,6 +289,52 @@ test('admin can filter students and open course detail management', async () => 
 
   await userEvent.click(screen.getByRole('button', { name: '移除 课程学生' }));
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses/2/students/2', expect.objectContaining({ method: 'DELETE' })));
+});
+
+test('admin edits schedule slots in an overlay while keeping the global top bar style', async () => {
+  mockAdminApi();
+
+  const { container } = render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '课程管理' })).toBeInTheDocument());
+  await userEvent.click(screen.getByRole('button', { name: '查看课程 生成式 AI' }));
+
+  await waitFor(() => expect(screen.getByRole('heading', { name: '生成式 AI' })).toBeInTheDocument());
+  expect(container.querySelector('.topBar')).toBeInTheDocument();
+  expect(container.querySelector('.scheduleGrid')).toBeInTheDocument();
+  expect(screen.queryByLabelText('开始时间')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: '排课 周一 第1节' }));
+  const createDialog = screen.getByRole('dialog', { name: '编辑排课' });
+  await userEvent.click(within(createDialog).getByLabelText('授课教师'));
+  await userEvent.click(within(createDialog).getByRole('option', { name: '李老师（teacher2） · 人工智能学院' }));
+  await userEvent.selectOptions(within(createDialog).getByLabelText('教室'), '2');
+  await userEvent.click(within(createDialog).getByRole('radio', { name: '实验' }));
+  await userEvent.click(within(createDialog).getByRole('button', { name: '保存排课' }));
+
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses/2/schedule-slots', expect.objectContaining({
+    method: 'PUT',
+    body: JSON.stringify({ weekday: '周一', period: 1, teacherId: 2, classroomId: 2, courseType: 'LAB' }),
+  })));
+  await waitFor(() => expect(screen.getByText('实验楼101')).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '排课 周二 第4节' }));
+  const conflictDialog = screen.getByRole('dialog', { name: '编辑排课' });
+  await userEvent.click(within(conflictDialog).getByLabelText('授课教师'));
+  await userEvent.click(within(conflictDialog).getByRole('option', { name: '李老师（teacher2） · 人工智能学院' }));
+  await userEvent.selectOptions(within(conflictDialog).getByLabelText('教室'), '1');
+  await userEvent.click(within(conflictDialog).getByRole('button', { name: '保存排课' }));
+  await waitFor(() => expect(within(conflictDialog).getByText('该教室此节次已被占用')).toBeInTheDocument());
+
+  await userEvent.click(within(conflictDialog).getByRole('button', { name: '取消' }));
+  await userEvent.click(screen.getByRole('button', { name: '编辑排课 周二 第3节 李老师 教学楼A-301 讲课' }));
+  const editDialog = screen.getByRole('dialog', { name: '编辑排课' });
+  expect(within(editDialog).getByLabelText('教室')).toHaveValue('1');
+  await userEvent.click(within(editDialog).getByRole('button', { name: '删除排课' }));
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses/2/schedule-slots/7', expect.objectContaining({ method: 'DELETE' })));
 });
 
 test('admin student table shows continuous row numbers instead of database ids', async () => {
@@ -471,6 +544,23 @@ function mockAdminApi(options = {}) {
     { id: 1, name: '数据结构', code: 'DATA-01', department_id: 1, department_name: '计算机学院', weekday: '周一', start_time: '08:00', end_time: '09:40', location: '教学楼B-201', teacher_name: '张老师', term: '2025 秋季', student_count: 0 },
     { id: 2, name: '生成式 AI', code: 'GEN-AI', department_id: 2, department_name: '人工智能学院', weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教学楼A-301', teacher_name: '李老师', term: '2026 春季', student_count: 1 },
   ];
+  let classrooms = [
+    { id: 1, name: '教学楼A-301', building: '教学楼A', capacity: 80 },
+    { id: 2, name: '实验楼101', building: '实验楼', capacity: 48 },
+  ];
+  let scheduleSlots = [
+    {
+      id: 7,
+      course_id: 2,
+      weekday: '周二',
+      period: 3,
+      teacher_id: 2,
+      teacher_name: '李老师',
+      classroom_id: 1,
+      classroom_name: '教学楼A-301',
+      course_type: 'LECTURE',
+    },
+  ];
   let courseStudents = [students[1]];
   global.fetch = vi.fn(async (url, options = {}) => {
     const method = options.method ?? 'GET';
@@ -542,6 +632,13 @@ function mockAdminApi(options = {}) {
       } : student);
       return response(students[0]);
     }
+    if (url.endsWith('/admin/classrooms') && method === 'GET') return response(classrooms);
+    if (url.endsWith('/admin/classrooms') && method === 'POST') {
+      const body = JSON.parse(options.body);
+      const classroom = { id: 3, name: body.name, building: body.building, capacity: body.capacity };
+      classrooms = [...classrooms, classroom];
+      return response(classroom);
+    }
     if (url.endsWith('/admin/courses') && method === 'GET') return response(coursesData);
     if (url.endsWith('/admin/courses') && method === 'POST') {
       const body = JSON.parse(options.body);
@@ -569,11 +666,36 @@ function mockAdminApi(options = {}) {
       courseStudents = courseStudents.filter((student) => student.id !== 2);
       return response({});
     }
+    if (url.endsWith('/admin/courses/2/schedule-slots') && method === 'PUT') {
+      const body = JSON.parse(options.body);
+      if (body.period === 4) return errorResponse(409, { message: '该教室此节次已被占用' });
+      const selectedTeacher = teachers.find((item) => Number(item.id) === Number(body.teacherId));
+      const selectedClassroom = classrooms.find((item) => Number(item.id) === Number(body.classroomId));
+      const slot = {
+        id: body.id ?? 8,
+        course_id: 2,
+        weekday: body.weekday,
+        period: body.period,
+        teacher_id: body.teacherId,
+        teacher_name: selectedTeacher?.name,
+        classroom_id: body.classroomId,
+        classroom_name: selectedClassroom?.name,
+        course_type: body.courseType,
+      };
+      scheduleSlots = [...scheduleSlots.filter((item) => item.id !== slot.id), slot];
+      return response(slot);
+    }
+    if (url.endsWith('/admin/courses/2/schedule-slots/7') && method === 'DELETE') {
+      scheduleSlots = scheduleSlots.filter((slot) => slot.id !== 7);
+      return response({});
+    }
     if (url.endsWith('/admin/courses/2')) {
       return response({
         course: coursesData[1],
         schedule: { course_id: 2, weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教学楼A-301' },
-        teacher: { id: 2, name: '李老师', teacher_id: 2, term: '2026 春季' },
+        teacher: { id: 2, name: '李老师', teacher_id: 2, term: '2026 春季', department_name: '人工智能学院' },
+        teachers: [{ id: 2, name: '李老师', teacher_id: 2, term: '2026 春季', department_name: '人工智能学院' }],
+        scheduleSlots,
         students: courseStudents,
       });
     }

@@ -27,7 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
-  private static final String DEFAULT_TEACHER_PASSWORD = "teacher123";
+  private static final String DEFAULT_TEACHER_PASSWORD = "123456";
 
   private final JdbcTemplate jdbc;
   private final TransactionTemplate transactions;
@@ -127,6 +127,50 @@ public class AdminController {
     return jdbc.queryForList("SELECT value, label FROM course_terms ORDER BY sort_order, id");
   }
 
+  @GetMapping("/classrooms")
+  public List<Map<String, Object>> classrooms() {
+    admin();
+    return jdbc.queryForList("SELECT id, name, building, capacity FROM classrooms ORDER BY id");
+  }
+
+  @PostMapping("/classrooms")
+  public Map<String, Object> createClassroom(@RequestBody Map<String, Object> body) {
+    admin();
+    try {
+      long id =
+          insert(
+              "INSERT INTO classrooms(name, building, capacity) VALUES (?, ?, ?)",
+              text(body.get("name")),
+              blankToNull(textOrDefault(body.get("building"), "")),
+              optionalLong(body.get("capacity")));
+      return classroom(id);
+    } catch (DataAccessException err) {
+      throw conflictIfConstraint(err, "教室已存在");
+    }
+  }
+
+  @PutMapping("/classrooms/{id}")
+  public Map<String, Object> updateClassroom(@PathVariable long id, @RequestBody Map<String, Object> body) {
+    admin();
+    try {
+      jdbc.update(
+          "UPDATE classrooms SET name = ?, building = ?, capacity = ? WHERE id = ?",
+          text(body.get("name")),
+          blankToNull(textOrDefault(body.get("building"), "")),
+          optionalLong(body.get("capacity")),
+          id);
+      return classroom(id);
+    } catch (DataAccessException err) {
+      throw conflictIfConstraint(err, "教室已存在");
+    }
+  }
+
+  @DeleteMapping("/classrooms/{id}")
+  public void deleteClassroom(@PathVariable long id) {
+    admin();
+    jdbc.update("DELETE FROM classrooms WHERE id = ?", id);
+  }
+
   @PostMapping("/departments")
   public Map<String, Object> createDepartment(@RequestBody Map<String, Object> body) {
     admin();
@@ -222,7 +266,7 @@ public class AdminController {
     Long classId = optionalLong(body.get("classId"));
     String grade = blankToNull(textOrDefault(body.get("grade"), ""));
     return transactions.execute(status -> {
-      long userId = userForProfileCreate(text(body.get("username")), textOrDefault(body.get("password"), "student123"), "STUDENT", text(body.get("name")), "students");
+      long userId = userForProfileCreate(text(body.get("username")), textOrDefault(body.get("password"), "123456"), "STUDENT", text(body.get("name")), "students");
       try {
         long id = insert("INSERT INTO students(user_id, class_id, department_id, grade, name, student_no) VALUES (?, ?, ?, ?, ?, ?)", userId, classId, departmentId, grade, text(body.get("name")), text(body.get("studentNo")));
         return oneStudent(id);
@@ -341,6 +385,8 @@ public class AdminController {
         "course", oneCourse(id),
         "schedule", schedule(id),
         "teacher", courseTeacher(id),
+        "teachers", courseTeachers(id),
+        "scheduleSlots", scheduleSlots(id),
         "students", courseStudents(id));
   }
 
@@ -366,6 +412,62 @@ public class AdminController {
           text(body.get("location")));
     }
     return schedule(id);
+  }
+
+  @PutMapping("/courses/{id}/schedule-slots")
+  public Map<String, Object> upsertScheduleSlot(@PathVariable long id, @RequestBody Map<String, Object> body) {
+    admin();
+    oneCourse(id);
+    Long slotId = optionalLong(body.get("id"));
+    long teacherId = number(body.get("teacherId")).longValue();
+    long classroomId = number(body.get("classroomId")).longValue();
+    String weekday = text(body.get("weekday"));
+    long period = number(body.get("period")).longValue();
+    String courseType = textOrDefault(body.get("courseType"), "LECTURE");
+
+    if (weekday.isBlank() || period < 1 || period > 9) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "请选择有效节次");
+    }
+    if (!"LECTURE".equals(courseType) && !"LAB".equals(courseType)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "课程类型无效");
+    }
+    oneTeacher(teacherId);
+    classroom(classroomId);
+    ensureSlotAvailable(id, slotId, weekday, period, teacherId, classroomId);
+
+    if (slotId == null) {
+      long createdId =
+          insert(
+              "INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)",
+              id,
+              teacherId,
+              classroomId,
+              weekday,
+              period,
+              courseType);
+      return scheduleSlot(createdId);
+    }
+
+    int updated =
+        jdbc.update(
+            "UPDATE course_schedule_slots SET teacher_id = ?, classroom_id = ?, weekday = ?, period = ?, course_type = ? WHERE id = ? AND course_id = ?",
+            teacherId,
+            classroomId,
+            weekday,
+            period,
+            courseType,
+            slotId,
+            id);
+    if (updated == 0) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "排课不存在");
+    }
+    return scheduleSlot(slotId);
+  }
+
+  @DeleteMapping("/courses/{courseId}/schedule-slots/{slotId}")
+  public void deleteScheduleSlot(@PathVariable long courseId, @PathVariable long slotId) {
+    admin();
+    jdbc.update("DELETE FROM course_schedule_slots WHERE id = ? AND course_id = ?", slotId, courseId);
   }
 
   @PutMapping("/courses/{id}/teacher")
@@ -700,25 +802,119 @@ public class AdminController {
   }
 
   private Map<String, Object> courseTeacher(long courseId) {
+    return courseTeachers(courseId).stream().findFirst().orElse(Map.of());
+  }
+
+  private List<Map<String, Object>> courseTeachers(long courseId) {
     return jdbc.queryForList(
-            """
-            SELECT t.id,
-                   t.name,
-                   ca.id assignment_id,
-                   ca.teacher_id,
-                   ca.term,
-                   d.name department_name
-            FROM course_assignments ca
-            JOIN teachers t ON t.id = ca.teacher_id
-            LEFT JOIN departments d ON d.id = t.department_id
-            WHERE ca.course_id = ?
-            ORDER BY ca.id
-            LIMIT 1
-            """,
-            courseId)
-        .stream()
-        .findFirst()
-        .orElse(Map.of());
+        """
+        SELECT t.id,
+               t.name,
+               ca.id assignment_id,
+               ca.teacher_id,
+               ca.term,
+               d.name department_name,
+               u.username
+        FROM course_assignments ca
+        JOIN teachers t ON t.id = ca.teacher_id
+        JOIN users u ON u.id = t.user_id
+        LEFT JOIN departments d ON d.id = t.department_id
+        WHERE ca.course_id = ?
+        ORDER BY ca.id
+        """,
+        courseId);
+  }
+
+  private List<Map<String, Object>> scheduleSlots(long courseId) {
+    return jdbc.queryForList(
+        """
+        SELECT css.id,
+               css.course_id,
+               css.weekday,
+               css.period,
+               css.teacher_id,
+               t.name teacher_name,
+               css.classroom_id,
+               cr.name classroom_name,
+               css.course_type
+        FROM course_schedule_slots css
+        JOIN teachers t ON t.id = css.teacher_id
+        JOIN classrooms cr ON cr.id = css.classroom_id
+        WHERE css.course_id = ?
+        ORDER BY
+          CASE css.weekday
+            WHEN '周一' THEN 1
+            WHEN '周二' THEN 2
+            WHEN '周三' THEN 3
+            WHEN '周四' THEN 4
+            WHEN '周五' THEN 5
+            WHEN '周六' THEN 6
+            WHEN '周日' THEN 7
+            ELSE 8
+          END,
+          css.period
+        """,
+        courseId);
+  }
+
+  private Map<String, Object> scheduleSlot(long slotId) {
+    return one(
+        """
+        SELECT css.id,
+               css.course_id,
+               css.weekday,
+               css.period,
+               css.teacher_id,
+               t.name teacher_name,
+               css.classroom_id,
+               cr.name classroom_name,
+               css.course_type
+        FROM course_schedule_slots css
+        JOIN teachers t ON t.id = css.teacher_id
+        JOIN classrooms cr ON cr.id = css.classroom_id
+        WHERE css.id = ?
+        """,
+        slotId);
+  }
+
+  private Map<String, Object> classroom(long id) {
+    return one("SELECT id, name, building, capacity FROM classrooms WHERE id = ?", id);
+  }
+
+  private void ensureSlotAvailable(long courseId, Long slotId, String weekday, long period, long teacherId, long classroomId) {
+    String slotFilter = slotId == null ? "" : " AND id <> ?";
+    List<Object> teacherArgs = new ArrayList<>(List.of(weekday, period, teacherId));
+    if (slotId != null) teacherArgs.add(slotId);
+    Integer teacherConflicts =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM course_schedule_slots WHERE weekday = ? AND period = ? AND teacher_id = ?" + slotFilter,
+            Integer.class,
+            teacherArgs.toArray());
+    if (teacherConflicts != null && teacherConflicts > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "该教师此节次已有排课");
+    }
+
+    List<Object> classroomArgs = new ArrayList<>(List.of(weekday, period, classroomId));
+    if (slotId != null) classroomArgs.add(slotId);
+    Integer classroomConflicts =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM course_schedule_slots WHERE weekday = ? AND period = ? AND classroom_id = ?" + slotFilter,
+            Integer.class,
+            classroomArgs.toArray());
+    if (classroomConflicts != null && classroomConflicts > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "该教室此节次已被占用");
+    }
+
+    List<Object> courseArgs = new ArrayList<>(List.of(courseId, weekday, period));
+    if (slotId != null) courseArgs.add(slotId);
+    Integer courseConflicts =
+        jdbc.queryForObject(
+            "SELECT COUNT(*) FROM course_schedule_slots WHERE course_id = ? AND weekday = ? AND period = ?" + slotFilter,
+            Integer.class,
+            courseArgs.toArray());
+    if (courseConflicts != null && courseConflicts > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "该课程此节次已有排课");
+    }
   }
 
   private List<Map<String, Object>> courseStudents(long courseId) {

@@ -33,6 +33,8 @@ public class DatabaseInitializer {
     jdbc.execute("CREATE TABLE IF NOT EXISTS course_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL REFERENCES courses(id), teacher_id INTEGER NOT NULL REFERENCES teachers(id), term TEXT, UNIQUE(course_id, teacher_id))");
     jdbc.execute("CREATE TABLE IF NOT EXISTS course_terms (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL UNIQUE, label TEXT NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0)");
     jdbc.execute("CREATE TABLE IF NOT EXISTS course_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL UNIQUE REFERENCES courses(id) ON DELETE CASCADE, weekday TEXT, start_time TEXT, end_time TEXT, location TEXT)");
+    jdbc.execute("CREATE TABLE IF NOT EXISTS classrooms (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, building TEXT, capacity INTEGER)");
+    jdbc.execute("CREATE TABLE IF NOT EXISTS course_schedule_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE, teacher_id INTEGER NOT NULL REFERENCES teachers(id), classroom_id INTEGER NOT NULL REFERENCES classrooms(id), weekday TEXT NOT NULL, period INTEGER NOT NULL, course_type TEXT NOT NULL, UNIQUE(course_id, weekday, period))");
     jdbc.execute("CREATE TABLE IF NOT EXISTS course_enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, assignment_id INTEGER NOT NULL REFERENCES course_assignments(id) ON DELETE CASCADE, student_id INTEGER NOT NULL REFERENCES students(id), UNIQUE(assignment_id, student_id))");
     jdbc.execute("CREATE TABLE IF NOT EXISTS attendance_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL REFERENCES courses(id), teacher_id INTEGER NOT NULL REFERENCES teachers(id), started_at TEXT NOT NULL, ends_at TEXT NOT NULL, status TEXT NOT NULL, method TEXT NOT NULL DEFAULT 'QR')");
     jdbc.execute("CREATE TABLE IF NOT EXISTS attendance_records (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL REFERENCES attendance_sessions(id), student_id INTEGER NOT NULL REFERENCES students(id), status TEXT NOT NULL, checked_in_at TEXT, source TEXT NOT NULL, UNIQUE(session_id, student_id))");
@@ -44,6 +46,8 @@ public class DatabaseInitializer {
     addColumnIfMissing("students", "department_id", "INTEGER REFERENCES departments(id)");
     addColumnIfMissing("students", "grade", "TEXT");
     addColumnIfMissing("courses", "department_id", "INTEGER REFERENCES departments(id)");
+    addColumnIfMissing("classrooms", "building", "TEXT");
+    addColumnIfMissing("classrooms", "capacity", "INTEGER");
     migrateNullableClassBindings();
     addColumnIfMissing("course_assignments", "term", "TEXT");
     addColumnIfMissing("attendance_sessions", "method", "TEXT NOT NULL DEFAULT 'QR'");
