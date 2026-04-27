@@ -117,6 +117,7 @@ test('admin course detail action is centered on the right side of the card', () 
 
 test('teacher can start attendance and view record drawer', async () => {
   mockTeacherApi();
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
   render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
@@ -138,7 +139,7 @@ test('teacher can start attendance and view record drawer', async () => {
   await userEvent.click(screen.getByRole('button', { name: '提前结束考勤' }));
   await waitFor(() => expect(screen.getByText('考勤已结束')).toBeInTheDocument());
 
-  await userEvent.click(screen.getByRole('button', { name: '关闭' }));
+  await userEvent.click(screen.getByRole('button', { name: '隐藏窗口，考勤继续' }));
   await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]);
   await waitFor(() => expect(screen.getByRole('button', { name: '查看明细' })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '查看明细' }));
@@ -198,17 +199,19 @@ test('admin can manage classrooms for schedule slot selection', async () => {
   await userEvent.click(screen.getByRole('button', { name: '教室管理' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '教室管理' })).toBeInTheDocument());
   expect(screen.getByRole('columnheader', { name: '教室名称' })).toBeInTheDocument();
-  expect(screen.getByText('教学楼A-301')).toBeInTheDocument();
+  expect(screen.getByText('教一-301')).toBeInTheDocument();
   expect(screen.queryByLabelText('院系')).not.toBeInTheDocument();
 
-  await userEvent.type(screen.getByLabelText('教室名称'), '综合楼202');
-  await userEvent.type(screen.getByLabelText('教学楼'), '综合楼');
-  await userEvent.type(screen.getByLabelText('容量'), '64');
-  await userEvent.click(screen.getByRole('button', { name: '新增' }));
+  await userEvent.click(screen.getByRole('button', { name: '新增教室' }));
+  const classroomDialog = screen.getByRole('dialog', { name: '新增教室' });
+  await userEvent.type(within(classroomDialog).getByLabelText('*教室名称'), '综合楼202');
+  await userEvent.selectOptions(within(classroomDialog).getByLabelText('*教学楼'), '教一');
+  await userEvent.type(within(classroomDialog).getByLabelText('*容量'), '64');
+  await userEvent.click(within(classroomDialog).getByRole('button', { name: '确定' }));
 
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/classrooms', expect.objectContaining({
     method: 'POST',
-    body: JSON.stringify({ name: '综合楼202', building: '综合楼', capacity: '64' }),
+    body: JSON.stringify({ name: '综合楼202', building: '教一', capacity: '64' }),
   })));
   await waitFor(() => expect(screen.getByText('综合楼202')).toBeInTheDocument());
 });
@@ -237,12 +240,12 @@ test('admin can filter students and open course detail management', async () => 
   const studentDialog = screen.getByRole('dialog', { name: '新增学生' });
   expect(within(studentDialog).getByLabelText('初始密码')).toHaveAttribute('type', 'text');
   expect(within(studentDialog).getByLabelText('初始密码')).toHaveValue('');
-  await userEvent.type(within(studentDialog).getByLabelText('姓名'), '新增学生');
-  await userEvent.type(within(studentDialog).getByLabelText('账号'), 'student4');
-  await userEvent.type(within(studentDialog).getByLabelText('学号'), '20230004');
-  await userEvent.type(within(studentDialog).getByLabelText('年级'), '2026');
-  await userEvent.selectOptions(within(studentDialog).getByLabelText('所属院系'), '计算机学院');
-  await userEvent.click(within(studentDialog).getByRole('button', { name: '新增' }));
+  await userEvent.type(within(studentDialog).getByLabelText('*姓名'), '新增学生');
+  await userEvent.type(within(studentDialog).getByLabelText('*账号'), 'student4');
+  await userEvent.type(within(studentDialog).getByLabelText('*学号'), '20230004');
+  await userEvent.selectOptions(within(studentDialog).getByLabelText('*年级'), '2026 级');
+  await userEvent.selectOptions(within(studentDialog).getByLabelText('*所属院系'), '计算机学院');
+  await userEvent.click(within(studentDialog).getByRole('button', { name: '确定' }));
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/students', expect.objectContaining({
     method: 'POST',
     body: expect.stringContaining('"grade":"2026"'),
@@ -252,13 +255,12 @@ test('admin can filter students and open course detail management', async () => 
 
   await userEvent.click(screen.getByRole('button', { name: '编辑 学生 测试学生' }));
   const editStudentDialog = screen.getByRole('dialog', { name: '编辑学生' });
-  expect(within(editStudentDialog).getByLabelText('年级')).toHaveValue('2023');
-  await userEvent.clear(within(editStudentDialog).getByLabelText('年级'));
-  await userEvent.type(within(editStudentDialog).getByLabelText('年级'), '2027');
-  await userEvent.click(within(editStudentDialog).getByRole('button', { name: '保存' }));
+  expect(within(editStudentDialog).getByLabelText('*年级')).toHaveValue('2023');
+  await userEvent.selectOptions(within(editStudentDialog).getByLabelText('*年级'), '2022 级');
+  await userEvent.click(within(editStudentDialog).getByRole('button', { name: '确定' }));
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/students/1', expect.objectContaining({
     method: 'PUT',
-    body: expect.stringContaining('"grade":"2027"'),
+    body: expect.stringContaining('"grade":"2022"'),
   })));
 
   await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
@@ -270,7 +272,7 @@ test('admin can filter students and open course detail management', async () => 
   expect(screen.queryByText('固定星期和时间格式，减少录入错误。')).not.toBeInTheDocument();
   expect(screen.queryByText('搜索教师姓名、账号或院系后选择授课人。')).not.toBeInTheDocument();
   expect(screen.getByLabelText('排课网格')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '编辑排课 周二 第3节 李老师 教学楼A-301 讲课' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '编辑排课 周二 第3节 李老师 教一-301 讲课' })).toBeInTheDocument();
   expect(screen.queryByLabelText('开始时间')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('结束时间')).not.toBeInTheDocument();
   expect(screen.getByLabelText('学期').tagName).toBe('SELECT');
@@ -280,7 +282,7 @@ test('admin can filter students and open course detail management', async () => 
   expect(screen.queryByLabelText('学生 ID')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('搜索学生')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '添加学生' })).toBeInTheDocument();
-  expect(screen.getByText('教学楼A-301')).toBeInTheDocument();
+  expect(screen.getByText('教一-301')).toBeInTheDocument();
   expect(screen.getByText('课程学生')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: '添加学生' }));
@@ -336,7 +338,7 @@ test('admin edits schedule slots in an overlay while keeping the global top bar 
   await waitFor(() => expect(within(conflictDialog).getByText('该教室此节次已被占用')).toBeInTheDocument());
 
   await userEvent.click(within(conflictDialog).getByRole('button', { name: '取消' }));
-  await userEvent.click(screen.getByRole('button', { name: '编辑排课 周二 第3节 李老师 教学楼A-301 讲课' }));
+  await userEvent.click(screen.getByRole('button', { name: '编辑排课 周二 第3节 李老师 教一-301 讲课' }));
   const editDialog = screen.getByRole('dialog', { name: '编辑排课' });
   expect(within(editDialog).getByLabelText('教室')).toHaveValue('1');
   await userEvent.click(within(editDialog).getByRole('button', { name: '删除排课' }));
@@ -396,10 +398,10 @@ test('admin course management uses searchable table and modal creation', async (
 
   await userEvent.click(screen.getByRole('button', { name: '创建课程' }));
   const dialog = screen.getByRole('dialog', { name: '创建课程' });
-  await userEvent.type(within(dialog).getByLabelText('课程名称'), '机器学习');
-  await userEvent.type(within(dialog).getByLabelText('课程代码'), 'ML-01');
-  await userEvent.selectOptions(within(dialog).getByLabelText('院系'), '计算机学院');
-  await userEvent.click(within(dialog).getByRole('button', { name: '保存课程' }));
+  await userEvent.type(within(dialog).getByLabelText('*课程名称'), '机器学习');
+  await userEvent.type(within(dialog).getByLabelText('*课程代码'), 'ML-01');
+  await userEvent.selectOptions(within(dialog).getByLabelText('*所属院系'), '计算机学院');
+  await userEvent.click(within(dialog).getByRole('button', { name: '确定' }));
 
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses', expect.objectContaining({
     method: 'POST',
@@ -478,15 +480,15 @@ test('admin teacher management still supports editing basic data', async () => {
   await userEvent.click(screen.getByRole('button', { name: '编辑 教师 张老师' }));
   const editDialog = screen.getByRole('dialog', { name: '编辑教师' });
   expect(within(editDialog).queryByLabelText('初始密码')).not.toBeInTheDocument();
-  await userEvent.clear(within(editDialog).getByLabelText('姓名'));
-  await userEvent.type(within(editDialog).getByLabelText('姓名'), '张老师更新');
-  await userEvent.click(within(editDialog).getByRole('button', { name: '保存' }));
+  await userEvent.clear(within(editDialog).getByLabelText('*姓名'));
+  await userEvent.type(within(editDialog).getByLabelText('*姓名'), '张老师更新');
+  await userEvent.click(within(editDialog).getByRole('button', { name: '确定' }));
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/teachers/1', expect.objectContaining({ method: 'PUT' })));
 
   await userEvent.click(screen.getByRole('button', { name: '重置密码 教师 张老师更新' }));
-  expect(confirm).toHaveBeenCalledWith('确认将「张老师更新」的密码重置为 teacher123？');
+  expect(confirm).toHaveBeenCalledWith('确认将「张老师更新」的密码重置为 123456？');
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/teachers/1/reset-password', expect.objectContaining({ method: 'POST' })));
-  expect(screen.getByText('张老师更新的密码已重置为 teacher123')).toBeInTheDocument();
+  expect(screen.getByText('张老师更新的密码已重置为 123456')).toBeInTheDocument();
 });
 
 function mockTeacherApi() {
@@ -570,10 +572,10 @@ function mockAdminApi(options = {}) {
     : options.gappedStudentIds ? gappedStudents : baseStudents;
   let coursesData = [
     { id: 1, name: '数据结构', code: 'DATA-01', department_id: 1, department_name: '计算机学院', weekday: '周一', start_time: '08:00', end_time: '09:40', location: '教学楼B-201', teacher_name: '张老师', term: '2025 秋季', student_count: 0 },
-    { id: 2, name: '生成式 AI', code: 'GEN-AI', department_id: 2, department_name: '人工智能学院', weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教学楼A-301', teacher_name: '李老师', term: '2026 春季', student_count: 1 },
+    { id: 2, name: '生成式 AI', code: 'GEN-AI', department_id: 2, department_name: '人工智能学院', weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教一-301', teacher_name: '李老师', term: '2026 春季', student_count: 1 },
   ];
   let classrooms = [
-    { id: 1, name: '教学楼A-301', building: '教学楼A', capacity: 80 },
+    { id: 1, name: '教一-301', building: '教一', capacity: 80 },
     { id: 2, name: '实验楼101', building: '实验楼', capacity: 48 },
   ];
   let scheduleSlots = [
@@ -585,7 +587,7 @@ function mockAdminApi(options = {}) {
       teacher_id: 2,
       teacher_name: '李老师',
       classroom_id: 1,
-      classroom_name: '教学楼A-301',
+      classroom_name: '教一-301',
       course_type: 'LECTURE',
     },
   ];
@@ -720,7 +722,7 @@ function mockAdminApi(options = {}) {
     if (url.endsWith('/admin/courses/2')) {
       return response({
         course: coursesData[1],
-        schedule: { course_id: 2, weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教学楼A-301' },
+        schedule: { course_id: 2, weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教一-301' },
         teacher: { id: 2, name: '李老师', teacher_id: 2, term: '2026 春季', department_name: '人工智能学院' },
         teachers: [{ id: 2, name: '李老师', teacher_id: 2, term: '2026 春季', department_name: '人工智能学院' }],
         scheduleSlots,
