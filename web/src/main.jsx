@@ -1764,6 +1764,20 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
       });
   }, [enrolledStudentIds, studentSearch, students]);
 
+  const allFilteredSelected = filteredStudents.length > 0 &&
+    filteredStudents.every(s => selectedStudentIds.includes(String(s.id)));
+  const someFilteredSelected = filteredStudents.some(s => selectedStudentIds.includes(String(s.id)));
+
+  function toggleAllFiltered() {
+    if (allFilteredSelected) {
+      const filteredIds = new Set(filteredStudents.map(s => String(s.id)));
+      setSelectedStudentIds(current => current.filter(id => !filteredIds.has(id)));
+    } else {
+      const filteredIds = filteredStudents.map(s => String(s.id));
+      setSelectedStudentIds(current => [...new Set([...current, ...filteredIds])]);
+    }
+  }
+
   async function saveTeacher(event) {
     event.preventDefault();
     setError('');
@@ -1984,8 +1998,11 @@ function AdminCourseDetail({ client, detail, onBack, onChanged }) {
           students={filteredStudents}
           search={studentSearch}
           selectedStudentIds={selectedStudentIds}
+          allSelected={allFilteredSelected}
+          someSelected={someFilteredSelected}
           onSearch={setStudentSearch}
           onToggleStudent={toggleStudent}
+          onToggleAll={toggleAllFiltered}
           onClose={() => {
             setStudentDialogOpen(false);
             setSelectedStudentIds([]);
@@ -2129,7 +2146,7 @@ function TeacherCombobox({ teachers, selectedId, query, onQuery, onSelect }) {
   );
 }
 
-function StudentPickerDialog({ students, search, selectedStudentIds, onSearch, onToggleStudent, onClose, onConfirm }) {
+function StudentPickerDialog({ students, search, selectedStudentIds, allSelected, someSelected, onSearch, onToggleStudent, onToggleAll, onClose, onConfirm }) {
   return (
     <div className="modalLayer">
       <section className="modal studentPickerDialog" role="dialog" aria-modal="true" aria-label="添加选课学生">
@@ -2150,7 +2167,15 @@ function StudentPickerDialog({ students, search, selectedStudentIds, onSearch, o
           </label>
           <div className="tableWrap studentPickerTable">
             <table>
-              <thead><tr><th>选择</th><th>姓名</th><th>学号</th><th>院系</th></tr></thead>
+              <thead><tr><th>
+                        <input
+                          type="checkbox"
+                          aria-label="全选学生"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                          onChange={onToggleAll}
+                        />
+                      </th><th>姓名</th><th>学号</th><th>院系</th></tr></thead>
               <tbody>
                 {students.map((student) => {
                   const id = String(student.id);

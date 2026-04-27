@@ -299,6 +299,43 @@ test('admin can filter students and open course detail management', async () => 
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses/2/students/2', expect.objectContaining({ method: 'DELETE' })));
 });
 
+test('select-all checkbox in student picker dialog', async () => {
+  mockAdminApi();
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '课程管理' })).toBeInTheDocument());
+  await userEvent.click(screen.getByRole('button', { name: '查看课程 生成式 AI' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '生成式 AI' })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '添加学生' }));
+  const dialog = screen.getByRole('dialog', { name: '添加选课学生' });
+  const selectAllCheckbox = within(dialog).getByRole('checkbox', { name: '全选学生' });
+
+  // 1. 点击全选 → 所有可添加学生被选中
+  await userEvent.click(selectAllCheckbox);
+  const studentCheckboxes = within(dialog).getAllByRole('checkbox').filter(cb => cb !== selectAllCheckbox);
+  expect(studentCheckboxes.length).toBeGreaterThanOrEqual(1);
+  studentCheckboxes.forEach(cb => expect(cb).toBeChecked());
+
+  // 2. 再次点击 → 全部取消
+  await userEvent.click(selectAllCheckbox);
+  studentCheckboxes.forEach(cb => expect(cb).not.toBeChecked());
+
+  // 3. 手动选中部分 → 全选框为 indeterminate
+  await userEvent.click(studentCheckboxes[0]);
+  expect(selectAllCheckbox.indeterminate).toBe(true);
+  expect(selectAllCheckbox.checked).toBe(false);
+
+  // 4. 手动勾选全部 → 全选框变为 checked
+  for (const cb of studentCheckboxes.slice(1)) await userEvent.click(cb);
+  expect(selectAllCheckbox.checked).toBe(true);
+  expect(selectAllCheckbox.indeterminate).toBe(false);
+});
+
 test('admin edits schedule slots in an overlay while keeping the global top bar style', async () => {
   mockAdminApi();
 
