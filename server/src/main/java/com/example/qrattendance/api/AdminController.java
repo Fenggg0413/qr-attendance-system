@@ -168,7 +168,11 @@ public class AdminController {
   @DeleteMapping("/classrooms/{id}")
   public void deleteClassroom(@PathVariable long id) {
     admin();
-    jdbc.update("DELETE FROM classrooms WHERE id = ?", id);
+    transactions.execute(status -> {
+      jdbc.update("DELETE FROM course_schedule_slots WHERE classroom_id = ?", id);
+      jdbc.update("DELETE FROM classrooms WHERE id = ?", id);
+      return null;
+    });
   }
 
   @PostMapping("/departments")
@@ -270,7 +274,26 @@ public class AdminController {
   @DeleteMapping("/teachers/{id}")
   public void deleteTeacher(@PathVariable long id) {
     admin();
-    jdbc.update("DELETE FROM teachers WHERE id = ?", id);
+    transactions.execute(status -> {
+      jdbc.update("DELETE FROM student_notes WHERE teacher_id = ?", id);
+      jdbc.update("DELETE FROM course_schedule_slots WHERE teacher_id = ?", id);
+      
+      List<Long> assignments = jdbc.queryForList("SELECT id FROM course_assignments WHERE teacher_id = ?", Long.class, id);
+      for (Long assignmentId : assignments) {
+        jdbc.update("DELETE FROM course_enrollments WHERE assignment_id = ?", assignmentId);
+        jdbc.update("DELETE FROM course_assignments WHERE id = ?", assignmentId);
+      }
+      
+      List<Long> sessions = jdbc.queryForList("SELECT id FROM attendance_sessions WHERE teacher_id = ?", Long.class, id);
+      for (Long sessionId : sessions) {
+        jdbc.update("DELETE FROM attendance_records WHERE session_id = ?", sessionId);
+        jdbc.update("DELETE FROM leave_requests WHERE session_id = ?", sessionId);
+        jdbc.update("DELETE FROM attendance_sessions WHERE id = ?", sessionId);
+      }
+      
+      jdbc.update("DELETE FROM teachers WHERE id = ?", id);
+      return null;
+    });
   }
 
   @GetMapping("/students")
@@ -329,7 +352,14 @@ public class AdminController {
   @DeleteMapping("/students/{id}")
   public void deleteStudent(@PathVariable long id) {
     admin();
-    jdbc.update("DELETE FROM students WHERE id = ?", id);
+    transactions.execute(status -> {
+      jdbc.update("DELETE FROM student_notes WHERE student_id = ?", id);
+      jdbc.update("DELETE FROM leave_requests WHERE student_id = ?", id);
+      jdbc.update("DELETE FROM attendance_records WHERE student_id = ?", id);
+      jdbc.update("DELETE FROM course_enrollments WHERE student_id = ?", id);
+      jdbc.update("DELETE FROM students WHERE id = ?", id);
+      return null;
+    });
   }
 
   @PostMapping("/students/{id}/reset-password")
@@ -366,7 +396,12 @@ public class AdminController {
   @DeleteMapping("/classes/{id}")
   public void deleteClass(@PathVariable long id) {
     admin();
-    jdbc.update("DELETE FROM classes WHERE id = ?", id);
+    transactions.execute(status -> {
+      jdbc.update("UPDATE students SET class_id = NULL WHERE class_id = ?", id);
+      jdbc.update("UPDATE courses SET class_id = NULL WHERE class_id = ?", id);
+      jdbc.update("DELETE FROM classes WHERE id = ?", id);
+      return null;
+    });
   }
 
   @GetMapping("/courses")
@@ -423,7 +458,26 @@ public class AdminController {
   @DeleteMapping("/courses/{id}")
   public void deleteCourse(@PathVariable long id) {
     admin();
-    jdbc.update("DELETE FROM courses WHERE id = ?", id);
+    transactions.execute(status -> {
+      jdbc.update("DELETE FROM course_schedules WHERE course_id = ?", id);
+      jdbc.update("DELETE FROM course_schedule_slots WHERE course_id = ?", id);
+      
+      List<Long> assignments = jdbc.queryForList("SELECT id FROM course_assignments WHERE course_id = ?", Long.class, id);
+      for (Long assignmentId : assignments) {
+        jdbc.update("DELETE FROM course_enrollments WHERE assignment_id = ?", assignmentId);
+        jdbc.update("DELETE FROM course_assignments WHERE id = ?", assignmentId);
+      }
+      
+      List<Long> sessions = jdbc.queryForList("SELECT id FROM attendance_sessions WHERE course_id = ?", Long.class, id);
+      for (Long sessionId : sessions) {
+        jdbc.update("DELETE FROM attendance_records WHERE session_id = ?", sessionId);
+        jdbc.update("DELETE FROM leave_requests WHERE session_id = ?", sessionId);
+        jdbc.update("DELETE FROM attendance_sessions WHERE id = ?", sessionId);
+      }
+      
+      jdbc.update("DELETE FROM courses WHERE id = ?", id);
+      return null;
+    });
   }
 
   @GetMapping("/courses/{id}")
@@ -606,7 +660,11 @@ public class AdminController {
   @DeleteMapping("/course-assignments/{id}")
   public void deleteAssignment(@PathVariable long id) {
     admin();
-    jdbc.update("DELETE FROM course_assignments WHERE id = ?", id);
+    transactions.execute(status -> {
+      jdbc.update("DELETE FROM course_enrollments WHERE assignment_id = ?", id);
+      jdbc.update("DELETE FROM course_assignments WHERE id = ?", id);
+      return null;
+    });
   }
 
   @GetMapping("/enrollments")
