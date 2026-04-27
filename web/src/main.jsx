@@ -44,7 +44,7 @@ const adminResources = {
       ['grade', '年级'],
       ['departmentId', '所属院系'],
     ],
-    columns: ['id', 'name', 'username', 'student_no', 'department_name', 'grade'],
+    columns: ['display_index', 'name', 'username', 'student_no', 'department_name', 'grade'],
   },
   teachers: {
     title: '教师管理',
@@ -56,7 +56,7 @@ const adminResources = {
       ['password', '初始密码'],
       ['departmentId', '所属院系'],
     ],
-    columns: ['name', 'username', 'department_name'],
+    columns: ['display_index', 'name', 'username', 'department_name'],
   },
 };
 
@@ -69,6 +69,7 @@ const adminNav = [
 
 const adminLabels = {
   id: 'ID',
+  display_index: '序号',
   name: '姓名',
   username: '账号',
   department: '院系',
@@ -1210,13 +1211,27 @@ function AdminCoursesPage({ client }) {
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [form, setForm] = useState({ name: '', code: '', departmentId: '' });
+  const [filters, setFilters] = useState({ query: '', department: '全部院系', term: '全部学期' });
+  const [appliedFilters, setAppliedFilters] = useState({ query: '', department: '全部院系', term: '全部学期' });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const termOptions = useMemo(() => ['全部学期', ...Array.from(new Set(courses.map((course) => course.term).filter(Boolean)))], [courses]);
+  const filteredCourses = useMemo(() => filterAdminCourses(courses, appliedFilters), [appliedFilters, courses]);
+  const totalPages = Math.max(1, Math.ceil(filteredCourses.length / pageSize));
+  const pageCourses = filteredCourses.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
 
   async function load() {
     setLoading(true);
@@ -1240,14 +1255,38 @@ function AdminCoursesPage({ client }) {
 
   async function createCourse(event) {
     event.preventDefault();
-    await client.post('/admin/courses', normalizeAdminForm(form));
-    setForm({ name: '', code: '', departmentId: departments[0] ? String(departments[0].id) : '' });
-    await load();
+    setError('');
+    try {
+      await client.post('/admin/courses', normalizeAdminForm(form));
+      setForm({ name: '', code: '', departmentId: departments[0] ? String(departments[0].id) : '' });
+      setDialogOpen(false);
+      await load();
+    } catch (err) {
+      setError(err.message ?? '课程创建失败');
+    }
   }
 
   async function openCourse(course) {
     setSelected(course);
     setDetail(await client.get(`/admin/courses/${course.id}`));
+  }
+
+  function applyFilters(event) {
+    event.preventDefault();
+    setAppliedFilters(filters);
+    setPage(1);
+  }
+
+  function resetFilters() {
+    const emptyFilters = { query: '', department: '全部院系', term: '全部学期' };
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setPage(1);
+  }
+
+  function openCreateDialog() {
+    setForm((value) => ({ ...value, departmentId: value.departmentId || (departments[0] ? String(departments[0].id) : '') }));
+    setDialogOpen(true);
   }
 
   if (selected && detail) {
@@ -1267,37 +1306,149 @@ function AdminCoursesPage({ client }) {
 
   return (
     <div className="adminPage">
-      <AdminPageHead title="课程管理" subtitle="创建课程并进入详情维护排课、教师和学生名单。" icon={<BookOpen />} count={courses.length} onRefresh={load} />
-      <section className="panel adminEditor">
-        <form className="inlineForm" onSubmit={createCourse}>
-          <label>课程名称<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-          <label>课程代码<input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} /></label>
+      <AdminPageHead title="课程管理" subtitle="检索课程并进入详情维护排课、教师和学生名单。" onRefresh={load} />
+      {error && <div className="error">{error}</div>}
+      <section className="panel adminCourseTablePanel">
+        <CourseTableHeader
+          filters={filters}
+          departments={departments}
+          terms={termOptions}
+          total={filteredCourses.length}
+          onFilters={setFilters}
+          onApply={applyFilters}
+          onReset={resetFilters}
+          onCreate={openCreateDialog}
+        />
+        <div className="tableWrap">
+          <table className="adminTable courseDataTable">
+            <thead>
+              <tr>
+                <th>序号</th>
+                <th>课程名称</th>
+                <th>课程代码</th>
+                <th>院系</th>
+                <th>授课教师</th>
+                <th>学期</th>
+                <th>上课时间</th>
+                <th>地点</th>
+                <th>选课人数</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan="10">加载中</td></tr>}
+              {!loading && pageCourses.map((course, index) => (
+                <tr key={course.id}>
+                  <td>{(page - 1) * pageSize + index + 1}</td>
+                  <td><strong>{course.name}</strong></td>
+                  <td>{course.code}</td>
+                  <td>{course.department_name ?? '未设置院系'}</td>
+                  <td>{course.teacher_name ?? '未分配'}</td>
+                  <td>{course.term ?? '未设置'}</td>
+                  <td>{formatCourseSchedule(course)}</td>
+                  <td>{course.location ?? '未排课'}</td>
+                  <td>{Number(course.student_count ?? 0)} 人</td>
+                  <td>
+                    <button className="ghost" aria-label={`查看课程 ${course.name}`} onClick={() => openCourse(course)}>查看详情</button>
+                  </td>
+                </tr>
+              ))}
+              {!loading && !pageCourses.length && <tr><td colSpan="10">暂无课程</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <AdminPagination
+          total={filteredCourses.length}
+          page={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPage={setPage}
+          onPageSize={(nextSize) => {
+            setPageSize(nextSize);
+            setPage(1);
+          }}
+        />
+      </section>
+      {dialogOpen && (
+        <CourseFormDialog
+          form={form}
+          departments={departments}
+          onForm={setForm}
+          onSubmit={createCourse}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CourseTableHeader({ filters, departments, terms, total, onFilters, onApply, onReset, onCreate }) {
+  return (
+    <div className="studentTableHeader courseTableHeader">
+      <form className="studentSearchBar courseSearchBar" onSubmit={onApply}>
+        <label className="searchField">
+          搜索
+          <span>
+            <Search size={16} />
+            <input
+              placeholder="搜索课程名称或代码"
+              value={filters.query}
+              onChange={(event) => onFilters({ ...filters, query: event.target.value })}
+            />
+          </span>
+        </label>
+        <label>
+          院系
+          <select value={filters.department} onChange={(event) => onFilters({ ...filters, department: event.target.value })}>
+            <option>全部院系</option>
+            {departments.map((department) => <option key={department.id}>{department.name}</option>)}
+          </select>
+        </label>
+        <label>
+          学期
+          <select value={filters.term} onChange={(event) => onFilters({ ...filters, term: event.target.value })}>
+            {terms.map((term) => <option key={term}>{term}</option>)}
+          </select>
+        </label>
+        <div className="studentSearchActions">
+          <button type="submit"><Search size={16} />查询</button>
+          <button type="button" className="ghost" onClick={onReset}>重置</button>
+        </div>
+      </form>
+      <div className="studentTableActions">
+        <strong>共搜索到 {total} 门课程</strong>
+        <button type="button" onClick={onCreate}><Plus size={16} />创建课程</button>
+      </div>
+    </div>
+  );
+}
+
+function CourseFormDialog({ form, departments, onForm, onSubmit, onClose }) {
+  return (
+    <div className="modalLayer">
+      <section className="modal adminResourceDialog" role="dialog" aria-modal="true" aria-label="创建课程">
+        <div className="modalHead">
+          <div>
+            <h2>创建课程</h2>
+            <p>创建基础课程后，可进入详情维护教师、排课和学生名单。</p>
+          </div>
+          <button type="button" className="iconButton" onClick={onClose} aria-label="关闭创建课程"><X size={18} /></button>
+        </div>
+        <form className="modalBody adminResourceForm" onSubmit={onSubmit}>
+          <label>课程名称<input value={form.name} onChange={(event) => onForm({ ...form, name: event.target.value })} /></label>
+          <label>课程代码<input value={form.code} onChange={(event) => onForm({ ...form, code: event.target.value })} /></label>
           <label>
             院系
-            <select value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}>
+            <select value={form.departmentId} onChange={(event) => onForm({ ...form, departmentId: event.target.value })}>
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
             </select>
           </label>
-          <button><Plus size={16} />添加课程</button>
+          <div className="formActions dialogActions">
+            <button type="button" className="ghost" onClick={onClose}>取消</button>
+            <button type="submit"><Save size={16} />保存课程</button>
+          </div>
         </form>
-        {error && <div className="error">{error}</div>}
       </section>
-      {loading ? <div className="panel">加载中</div> : (
-        <section className="adminCourseGrid">
-          {courses.map((course) => (
-            <article className="adminCourseCard" key={course.id}>
-              <div>
-                <span className="eyebrow">{course.department_name ?? '未设置院系'}</span>
-                <h2>{course.name}</h2>
-                <p>{course.code}</p>
-                <small><CalendarDays size={14} />{course.weekday ?? '-'} {course.start_time ?? ''}-{course.end_time ?? ''} · {course.location ?? '未排课'}</small>
-              </div>
-              <button className="ghost" aria-label={`查看课程 ${course.name}`} onClick={() => openCourse(course)}>查看详情</button>
-            </article>
-          ))}
-          {!courses.length && <div className="empty panel">暂无课程</div>}
-        </section>
-      )}
     </div>
   );
 }
@@ -1709,9 +1860,15 @@ function AdminResourcePage({ client, config }) {
   const studentRows = isStudentResource
     ? filteredItems.slice((studentPage - 1) * studentPageSize, studentPage * studentPageSize)
     : filteredItems;
+  const displayedStudentRows = isStudentResource
+    ? studentRows.map((row, index) => ({ ...row, display_index: (studentPage - 1) * studentPageSize + index + 1 }))
+    : studentRows;
   const teacherRows = isTeacherResource
     ? filteredItems.slice((teacherPage - 1) * teacherPageSize, teacherPage * teacherPageSize)
     : filteredItems;
+  const displayedTeacherRows = isTeacherResource
+    ? teacherRows.map((row, index) => ({ ...row, display_index: (teacherPage - 1) * teacherPageSize + index + 1 }))
+    : teacherRows;
 
   useEffect(() => {
     setForm(emptyAdminForm(config.fields));
@@ -1865,7 +2022,7 @@ function AdminResourcePage({ client, config }) {
         <AdminPageHead title={config.title} subtitle="维护后台基础数据，支持搜索、刷新、编辑和删除。" onRefresh={load} />
         {error && <div className="error">{error}</div>}
         <AdminDataTable
-          rows={studentRows}
+          rows={displayedStudentRows}
           columns={config.columns}
           loading={loading}
           resourceTitle={config.title.replace(/管理$/, '')}
@@ -1920,7 +2077,7 @@ function AdminResourcePage({ client, config }) {
         {error && <div className="error">{error}</div>}
         {message && <div className="success">{message}</div>}
         <AdminDataTable
-          rows={teacherRows}
+          rows={displayedTeacherRows}
           columns={config.columns}
           loading={loading}
           resourceTitle={config.title.replace(/管理$/, '')}
@@ -2282,6 +2439,16 @@ function filterTeacherRows(rows, query) {
   return rows.filter((row) => [row.name, row.username].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
 }
 
+function filterAdminCourses(courses, filters) {
+  const query = filters.query.trim().toLowerCase();
+  return courses.filter((course) => {
+    const matchesQuery = !query || [course.name, course.code].some((cell) => String(cell ?? '').toLowerCase().includes(query));
+    const matchesDepartment = filters.department === '全部院系' || course.department_name === filters.department;
+    const matchesTerm = filters.term === '全部学期' || course.term === filters.term;
+    return matchesQuery && matchesDepartment && matchesTerm;
+  });
+}
+
 function displayAdminRow(row) {
   return courseNameText(row.name || row.course_name || row.student_name || row.username || `#${row.id}`);
 }
@@ -2306,6 +2473,12 @@ function sessionTotals(sessions) {
 function formatDate(value) {
   if (!value) return '-';
   return new Date(value).toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatCourseSchedule(course) {
+  if (!course.weekday && !course.start_time && !course.end_time) return '未排课';
+  const time = [course.start_time, course.end_time].filter(Boolean).join('-');
+  return [course.weekday, time].filter(Boolean).join(' ');
 }
 
 function formatToday() {

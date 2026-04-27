@@ -292,11 +292,24 @@ public class AdminController {
                cs.weekday,
                cs.start_time,
                cs.end_time,
-               cs.location
+               cs.location,
+               t.name teacher_name,
+               ca.term,
+               COALESCE(sc.student_count, 0) student_count
         FROM courses co
         LEFT JOIN classes cl ON cl.id = co.class_id
         LEFT JOIN departments d ON d.id = co.department_id
         LEFT JOIN course_schedules cs ON cs.course_id = co.id
+        LEFT JOIN course_assignments ca ON ca.id = (
+          SELECT id FROM course_assignments WHERE course_id = co.id ORDER BY id LIMIT 1
+        )
+        LEFT JOIN teachers t ON t.id = ca.teacher_id
+        LEFT JOIN (
+          SELECT ca2.course_id, COUNT(DISTINCT ce.student_id) student_count
+          FROM course_assignments ca2
+          LEFT JOIN course_enrollments ce ON ce.assignment_id = ca2.id
+          GROUP BY ca2.course_id
+        ) sc ON sc.course_id = co.id
         ORDER BY co.id
         """);
   }

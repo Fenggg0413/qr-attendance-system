@@ -1099,6 +1099,27 @@ th {
   gap: 6px;
 }
 
+.adminCourseTablePanel {
+  padding: 0;
+}
+
+.courseSearchBar {
+  grid-template-columns: minmax(260px, 1.3fr) minmax(150px, 0.7fr) minmax(170px, 0.8fr) auto;
+}
+
+.courseDataTable strong {
+  color: #0f172a;
+}
+
+.courseDataTable td:last-child,
+.courseDataTable th:last-child {
+  text-align: right;
+}
+
+.courseDataTable td:last-child button {
+  min-width: 112px;
+}
+
 .compactInlineForm {
   grid-template-columns: minmax(160px, 260px) auto;
   justify-content: start;
@@ -1482,6 +1503,7 @@ th {
   .adminTableToolbar,
   .studentSearchBar,
   .teacherSearchBar,
+  .courseSearchBar,
   .adminResourceForm,
   .courseDetailSection,
   .rosterAddForm {

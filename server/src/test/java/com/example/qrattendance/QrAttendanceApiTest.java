@@ -213,6 +213,12 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$.schedule.location", is("教学楼A-301")))
         .andExpect(jsonPath("$.teacher.name", is("课程老师")))
         .andExpect(jsonPath("$.students[0].name", is("课程学生")));
+
+    mvc.perform(get("/api/admin/courses").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.code == 'GEN-AI')].teacher_name").value(org.hamcrest.Matchers.hasItem("课程老师")))
+        .andExpect(jsonPath("$[?(@.code == 'GEN-AI')].term").value(org.hamcrest.Matchers.hasItem("2026 春季")))
+        .andExpect(jsonPath("$[?(@.code == 'GEN-AI')].student_count").value(org.hamcrest.Matchers.hasItem(1)));
   }
 
   @Test

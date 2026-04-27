@@ -264,6 +264,70 @@ test('admin can filter students and open course detail management', async () => 
   await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses/2/students/2', expect.objectContaining({ method: 'DELETE' })));
 });
 
+test('admin student table shows continuous row numbers instead of database ids', async () => {
+  mockAdminApi({ gappedStudentIds: true });
+
+  const { container } = render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
+  await userEvent.click(screen.getByRole('button', { name: '学生管理' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '学生管理' })).toBeInTheDocument());
+
+  expect(screen.getByRole('columnheader', { name: '序号' })).toBeInTheDocument();
+  expect(screen.queryByRole('columnheader', { name: 'ID' })).not.toBeInTheDocument();
+  const firstColumnValues = Array.from(container.querySelectorAll('.adminTable tbody tr'))
+    .map((row) => row.querySelector('td')?.textContent);
+  expect(firstColumnValues).toEqual(['1', '2']);
+
+  await userEvent.click(screen.getByRole('button', { name: '删除 学生 黄同学' }));
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/students/4', expect.objectContaining({ method: 'DELETE' })));
+});
+
+test('admin course management uses searchable table and modal creation', async () => {
+  mockAdminApi();
+
+  const { container } = render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '课程管理' })).toBeInTheDocument());
+
+  expect(screen.queryByText('2 条')).not.toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: '序号' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: '授课教师' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: '学期' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: '选课人数' })).toBeInTheDocument();
+  expect(Array.from(container.querySelectorAll('.courseDataTable tbody tr')).map((row) => row.querySelector('td')?.textContent)).toEqual(['1', '2']);
+  expect(screen.getByText('李老师')).toBeInTheDocument();
+  expect(screen.getAllByText('2026 春季').length).toBeGreaterThan(0);
+  expect(screen.getByText('1 人')).toBeInTheDocument();
+
+  await userEvent.type(screen.getByPlaceholderText('搜索课程名称或代码'), 'GEN');
+  await userEvent.click(screen.getByRole('button', { name: '查询' }));
+  expect(screen.getByText('生成式 AI')).toBeInTheDocument();
+  expect(screen.queryByText('数据结构')).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: '重置' }));
+  expect(screen.getByText('数据结构')).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText('院系'), '人工智能学院');
+  await userEvent.click(screen.getByRole('button', { name: '查询' }));
+  expect(screen.queryByText('数据结构')).not.toBeInTheDocument();
+  expect(screen.getByText('生成式 AI')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: '创建课程' }));
+  const dialog = screen.getByRole('dialog', { name: '创建课程' });
+  await userEvent.type(within(dialog).getByLabelText('课程名称'), '机器学习');
+  await userEvent.type(within(dialog).getByLabelText('课程代码'), 'ML-01');
+  await userEvent.selectOptions(within(dialog).getByLabelText('院系'), '计算机学院');
+  await userEvent.click(within(dialog).getByRole('button', { name: '保存课程' }));
+
+  await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/admin/courses', expect.objectContaining({
+    method: 'POST',
+    body: expect.stringContaining('"code":"ML-01"'),
+  })));
+});
+
 test('admin student table paginates client-side results', async () => {
   mockAdminApi({ manyStudents: true });
 
@@ -307,13 +371,15 @@ test('admin teacher management still supports editing basic data', async () => {
   mockAdminApi();
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-  render(<App />);
+  const { container } = render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '教师管理' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '教师管理' })).toBeInTheDocument());
   expect(screen.queryByLabelText('初始密码')).not.toBeInTheDocument();
   expect(screen.queryByRole('columnheader', { name: 'ID' })).not.toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: '序号' })).toBeInTheDocument();
+  expect(Array.from(container.querySelectorAll('.adminTable tbody tr')).map((row) => row.querySelector('td')?.textContent)).toEqual(['1', '2']);
   expect(screen.getByText('共 2 位教师')).toBeInTheDocument();
   expect(screen.getByText('第 1 / 1 页')).toBeInTheDocument();
 
@@ -386,6 +452,10 @@ function mockAdminApi(options = {}) {
     { id: 2, name: '课程学生', username: 'student2', student_no: '20230002', grade: '2023', department_id: 2, department_name: '人工智能学院' },
     { id: 3, name: '候选学生', username: 'student3', student_no: '20230003', grade: '2023', department_id: 2, department_name: '人工智能学院' },
   ];
+  const gappedStudents = [
+    { id: 1, name: '李同学', username: 'student1', student_no: '20230001', grade: '2023', department_id: 1, department_name: '计算机学院' },
+    { id: 4, name: '黄同学', username: 'B22042131', student_no: 'B22042131', grade: '2022', department_id: 1, department_name: '计算机学院' },
+  ];
   let students = options.manyStudents
     ? Array.from({ length: 13 }, (_, index) => ({
       id: index + 1,
@@ -396,10 +466,10 @@ function mockAdminApi(options = {}) {
       department_id: index % 2 === 0 ? 1 : 2,
       department_name: index % 2 === 0 ? '计算机学院' : '人工智能学院',
     }))
-    : baseStudents;
-  const coursesData = [
-    { id: 1, name: '数据结构', code: 'DATA-01', department_id: 1, department_name: '计算机学院', weekday: '周一', start_time: '08:00', end_time: '09:40', location: '教学楼B-201' },
-    { id: 2, name: '生成式 AI', code: 'GEN-AI', department_id: 2, department_name: '人工智能学院', weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教学楼A-301' },
+    : options.gappedStudentIds ? gappedStudents : baseStudents;
+  let coursesData = [
+    { id: 1, name: '数据结构', code: 'DATA-01', department_id: 1, department_name: '计算机学院', weekday: '周一', start_time: '08:00', end_time: '09:40', location: '教学楼B-201', teacher_name: '张老师', term: '2025 秋季', student_count: 0 },
+    { id: 2, name: '生成式 AI', code: 'GEN-AI', department_id: 2, department_name: '人工智能学院', weekday: '周二', start_time: '14:00', end_time: '15:40', location: '教学楼A-301', teacher_name: '李老师', term: '2026 春季', student_count: 1 },
   ];
   let courseStudents = [students[1]];
   global.fetch = vi.fn(async (url, options = {}) => {
@@ -473,6 +543,22 @@ function mockAdminApi(options = {}) {
       return response(students[0]);
     }
     if (url.endsWith('/admin/courses') && method === 'GET') return response(coursesData);
+    if (url.endsWith('/admin/courses') && method === 'POST') {
+      const body = JSON.parse(options.body);
+      const department = departments.find((item) => String(item.id) === String(body.departmentId));
+      const course = {
+        id: 3,
+        name: body.name,
+        code: body.code,
+        department_id: body.departmentId,
+        department_name: department?.name ?? '',
+        teacher_name: null,
+        term: null,
+        student_count: 0,
+      };
+      coursesData = [...coursesData, course];
+      return response(course);
+    }
     if (url.endsWith('/admin/courses/2/students') && method === 'POST') {
       const body = JSON.parse(options.body);
       const student = students.find((item) => item.id === body.studentId);
