@@ -174,8 +174,44 @@ public class AdminController {
   @PostMapping("/departments")
   public Map<String, Object> createDepartment(@RequestBody Map<String, Object> body) {
     admin();
-    long id = insert("INSERT INTO departments(name) VALUES (?)", text(body.get("name")));
-    return one("SELECT id, name FROM departments WHERE id = ?", id);
+    try {
+      long id = insert("INSERT INTO departments(name) VALUES (?)", text(body.get("name")));
+      return one("SELECT id, name FROM departments WHERE id = ?", id);
+    } catch (DataAccessException err) {
+      throw conflictIfConstraint(err, "院系名称已存在");
+    }
+  }
+
+  @PutMapping("/departments/{id}")
+  public Map<String, Object> updateDepartment(@PathVariable long id, @RequestBody Map<String, Object> body) {
+    admin();
+    String name = text(body.get("name"));
+    if (name.isBlank()) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "院系名称不能为空");
+    }
+    try {
+      int updated = jdbc.update("UPDATE departments SET name = ? WHERE id = ?", name, id);
+      if (updated == 0) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "院系不存在");
+      }
+      return one("SELECT id, name FROM departments WHERE id = ?", id);
+    } catch (DataAccessException err) {
+      throw conflictIfConstraint(err, "院系名称已存在");
+    }
+  }
+
+  @DeleteMapping("/departments/{id}")
+  public void deleteDepartment(@PathVariable long id) {
+    admin();
+    // Check if department is referenced by students, teachers, or courses
+    Integer studentCount = jdbc.queryForObject("SELECT COUNT(*) FROM students WHERE department_id = ?", Integer.class, id);
+    Integer teacherCount = jdbc.queryForObject("SELECT COUNT(*) FROM teachers WHERE department_id = ?", Integer.class, id);
+    Integer courseCount = jdbc.queryForObject("SELECT COUNT(*) FROM courses WHERE department_id = ?", Integer.class, id);
+    int total = (studentCount != null ? studentCount : 0) + (teacherCount != null ? teacherCount : 0) + (courseCount != null ? courseCount : 0);
+    if (total > 0) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "该院系下仍有关联数据（学生、教师或课程），无法删除");
+    }
+    jdbc.update("DELETE FROM departments WHERE id = ?", id);
   }
 
   @GetMapping("/teachers")
