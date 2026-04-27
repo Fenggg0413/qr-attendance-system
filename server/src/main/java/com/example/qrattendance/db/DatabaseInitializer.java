@@ -20,7 +20,15 @@ public class DatabaseInitializer {
     Files.createDirectories(Path.of("data"));
     jdbc.execute("PRAGMA foreign_keys = ON");
     schema();
+    cleanupOrphans();
     seed();
+  }
+
+  private void cleanupOrphans() {
+    jdbc.execute("DELETE FROM course_enrollments WHERE student_id NOT IN (SELECT id FROM students)");
+    jdbc.execute("DELETE FROM course_enrollments WHERE assignment_id NOT IN (SELECT id FROM course_assignments)");
+    jdbc.execute("DELETE FROM course_assignments WHERE teacher_id NOT IN (SELECT id FROM teachers)");
+    jdbc.execute("DELETE FROM course_assignments WHERE course_id NOT IN (SELECT id FROM courses)");
   }
 
   private void schema() {
