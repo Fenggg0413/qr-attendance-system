@@ -7,7 +7,7 @@ import com.example.qrattendance.data.model.LoginResponse
 import com.example.qrattendance.data.model.ScheduleSlot
 import com.example.qrattendance.data.model.TodaySession
 import com.example.qrattendance.data.model.User
-import com.example.qrattendance.data.store.ApiEndpointStore
+import com.example.qrattendance.data.store.ApiEndpointProvider
 import com.example.qrattendance.data.store.SessionStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,7 +24,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class OkHttpStudentApi(
   private val client: OkHttpClient,
-  private val endpointStore: ApiEndpointStore,
+  private val endpointStore: ApiEndpointProvider,
   private val sessionStore: SessionStore,
 ) : StudentApi {
   private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
