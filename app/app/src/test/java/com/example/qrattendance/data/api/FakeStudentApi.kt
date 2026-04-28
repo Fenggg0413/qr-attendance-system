@@ -9,10 +9,16 @@ import com.example.qrattendance.data.model.TodaySession
 import com.example.qrattendance.data.model.User
 
 class FakeStudentApi : StudentApi {
+  var currentUser: User = User(username = "B22042101", displayName = "李同学", studentNo = "B22042101", grade = "2022", department = "计算机学院")
+  var lastProfileDisplayName: String? = null
+  var lastPasswordChange: Pair<String, String>? = null
+  var updateProfileError: Throwable? = null
+  var changePasswordError: Throwable? = null
+
   override suspend fun login(username: String, password: String): LoginResponse =
     LoginResponse("token-$username", User(id = 1, username = username, role = "STUDENT", displayName = "李同学"))
 
-  override suspend fun me(): User = User(username = "student1", displayName = "李同学", studentNo = "20230001", grade = "2023", department = "计算机学院")
+  override suspend fun me(): User = currentUser
 
   override suspend fun dashboard(): Dashboard =
     Dashboard(
@@ -22,13 +28,17 @@ class FakeStudentApi : StudentApi {
       absentCount = 2,
       lateCount = 1,
       semesterAttendanceRate = 0.9,
-      todaySessions = listOf(TodaySession(id = 1, courseName = "移动开发", status = "OPEN")),
+      todaySessions = listOf(TodaySession(id = 1, slotId = 1, period = 1, courseName = "移动开发", status = "OPEN")),
     )
 
   override suspend fun schedule(): List<ScheduleSlot> =
     listOf(
-      ScheduleSlot(slotId = 1, weekday = "周一", period = 1, courseId = 1, courseName = "高等数学"),
-      ScheduleSlot(slotId = 2, weekday = "周二", period = 2, courseId = 2, courseName = "移动开发"),
+      ScheduleSlot(slotId = 1, weekday = "周一", period = 1, courseId = 1, courseName = "Java Web 开发"),
+      ScheduleSlot(slotId = 2, weekday = "周一", period = 2, courseId = 1, courseName = "Java Web 开发"),
+      ScheduleSlot(slotId = 3, weekday = "周三", period = 3, courseId = 1, courseName = "Java Web 开发"),
+      ScheduleSlot(slotId = 4, weekday = "周三", period = 4, courseId = 1, courseName = "Java Web 开发"),
+      ScheduleSlot(slotId = 5, weekday = "周五", period = 6, courseId = 1, courseName = "Java Web 开发"),
+      ScheduleSlot(slotId = 6, weekday = "周五", period = 7, courseId = 1, courseName = "Java Web 开发"),
     )
 
   override suspend fun sessions(scope: String): List<TodaySession> =
@@ -49,7 +59,15 @@ class FakeStudentApi : StudentApi {
   override suspend fun submitLeave(sessionId: Long, reason: String): LeaveRequest =
     LeaveRequest(id = 2, sessionId = sessionId, reason = reason, status = "PENDING")
 
-  override suspend fun updateProfile(displayName: String): User = User(username = "student1", displayName = displayName)
+  override suspend fun updateProfile(displayName: String): User {
+    updateProfileError?.let { throw it }
+    lastProfileDisplayName = displayName
+    currentUser = currentUser.copy(displayName = displayName)
+    return currentUser
+  }
 
-  override suspend fun changePassword(currentPassword: String, newPassword: String) = Unit
+  override suspend fun changePassword(currentPassword: String, newPassword: String) {
+    changePasswordError?.let { throw it }
+    lastPasswordChange = currentPassword to newPassword
+  }
 }

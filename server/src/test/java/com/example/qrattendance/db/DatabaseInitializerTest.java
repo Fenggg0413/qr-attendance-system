@@ -1,7 +1,9 @@
 package com.example.qrattendance.db;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.example.qrattendance.auth.PasswordHasher;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SingleConnectionDataSource;
@@ -48,11 +50,50 @@ class DatabaseInitializerTest {
     assertEquals("2022", jdbc.queryForObject("SELECT grade FROM students WHERE student_no = ?", String.class, "LEGACY-KEEP"));
   }
 
+  @Test
+  void seedCreatesRealStudentAccountAndScheduleWithoutStudent1() throws Exception {
+    JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource("jdbc:sqlite::memory:", true));
+
+    new DatabaseInitializer(jdbc).init();
+
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM users WHERE username = 'student1'"));
+    assertEquals(
+        1,
+        count(
+            jdbc,
+            "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id = u.id WHERE u.username = 'B22042101' AND u.password_hash = ? AND s.student_no = 'B22042101'",
+            PasswordHasher.hash("123456")));
+    assertEquals(
+        6,
+        count(
+            jdbc,
+            """
+            SELECT COUNT(*)
+            FROM users u
+            JOIN students s ON s.user_id = u.id
+            JOIN course_enrollments ce ON ce.student_id = s.id
+            JOIN course_assignments ca ON ca.id = ce.assignment_id
+            JOIN course_schedule_slots css ON css.course_id = ca.course_id AND css.teacher_id = ca.teacher_id
+            WHERE u.username = 'B22042101' AND css.weekday IN ('周一', '周三', '周五')
+            """));
+    assertTrue(
+        jdbc.queryForList(
+                "SELECT DISTINCT weekday FROM course_schedule_slots ORDER BY weekday").stream()
+            .map(row -> String.valueOf(row.get("weekday")))
+            .toList()
+            .containsAll(java.util.List.of("周一", "周三", "周五")));
+  }
+
   private int notNullFlag(JdbcTemplate jdbc, String table, String column) {
     return jdbc.queryForList("PRAGMA table_info(" + table + ")").stream()
         .filter(row -> column.equals(row.get("name")))
         .map(row -> ((Number) row.get("notnull")).intValue())
         .findFirst()
         .orElseThrow();
+  }
+
+  private int count(JdbcTemplate jdbc, String sql, Object... args) {
+    Integer value = jdbc.queryForObject(sql, Integer.class, args);
+    return value == null ? 0 : value;
   }
 }

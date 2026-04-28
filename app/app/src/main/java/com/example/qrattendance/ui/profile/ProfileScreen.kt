@@ -19,19 +19,25 @@ import androidx.compose.material.icons.rounded.EventBusy
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.NoteAdd
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.qrattendance.core.LocalContainer
 import com.example.qrattendance.ui.components.Avatar
@@ -43,12 +49,14 @@ import com.example.qrattendance.ui.theme.StatusOrange
 import com.example.qrattendance.ui.theme.StatusRed
 import com.example.qrattendance.ui.theme.Surface
 import com.example.qrattendance.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(onOpenLeave: () -> Unit, onLogout: () -> Unit) {
   val container = LocalContainer.current
-  val vm = remember { ProfileViewModel(container.api) }
+  val vm = remember { ProfileViewModel(container.api, container.sessionStore) }
   val state by vm.uiState.collectAsState()
+  val scope = rememberCoroutineScope()
   LaunchedEffect(Unit) { vm.load() }
   val user = state.user
   Column(modifier = Modifier.fillMaxSize().background(Background)) {
@@ -69,10 +77,30 @@ fun ProfileScreen(onOpenLeave: () -> Unit, onLogout: () -> Unit) {
       ProfileItem("请假申请", Icons.Rounded.NoteAdd, StatusOrange, onOpenLeave)
     }
     ProfileSection("账户") {
-      ProfileItem("修改资料", Icons.Rounded.Edit, Primary) {}
-      ProfileItem("修改密码", Icons.Rounded.Lock, Primary) {}
+      ProfileItem("修改资料", Icons.Rounded.Edit, Primary, vm::openEditProfile)
+      ProfileItem("修改密码", Icons.Rounded.Lock, Primary, vm::openEditPassword)
       ProfileItem("退出登录", Icons.Rounded.Logout, StatusRed, onLogout)
+      state.profileMessage?.takeIf { !state.editingProfile }?.let { ProfileMessage(it) }
+      state.passwordMessage?.takeIf { !state.editingPassword }?.let { ProfileMessage(it) }
     }
+  }
+  if (state.editingProfile) {
+    EditProfileDialog(
+      state = state,
+      onNameChange = vm::updateDisplayNameDraft,
+      onDismiss = vm::closeEditProfile,
+      onSubmit = { scope.launch { vm.submitProfile() } },
+    )
+  }
+  if (state.editingPassword) {
+    EditPasswordDialog(
+      state = state,
+      onCurrentChange = vm::updateCurrentPassword,
+      onNewChange = vm::updateNewPassword,
+      onConfirmChange = vm::updateConfirmPassword,
+      onDismiss = vm::closeEditPassword,
+      onSubmit = { scope.launch { vm.submitPassword() } },
+    )
   }
 }
 
@@ -96,4 +124,107 @@ private fun ProfileItem(label: String, icon: ImageVector, tint: Color, onClick: 
     Text(label, modifier = Modifier.weight(1f).padding(start = 12.dp), style = MaterialTheme.typography.bodyMedium)
     Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = TextSecondary)
   }
+}
+
+@Composable
+private fun ProfileMessage(message: String) {
+  Text(
+    message,
+    color = if (message.contains("已")) Primary else MaterialTheme.colorScheme.error,
+    style = MaterialTheme.typography.labelMedium,
+    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+  )
+}
+
+@Composable
+private fun EditProfileDialog(
+  state: ProfileUiState,
+  onNameChange: (String) -> Unit,
+  onDismiss: () -> Unit,
+  onSubmit: () -> Unit,
+) {
+  AlertDialog(
+    onDismissRequest = { if (!state.profileSaving) onDismiss() },
+    title = { Text("修改资料") },
+    text = {
+      Column {
+        OutlinedTextField(
+          value = state.displayNameDraft,
+          onValueChange = onNameChange,
+          label = { Text("姓名") },
+          singleLine = true,
+          enabled = !state.profileSaving,
+          modifier = Modifier.fillMaxWidth(),
+        )
+        state.profileMessage?.let { ProfileMessage(it) }
+      }
+    },
+    confirmButton = {
+      Button(onClick = onSubmit, enabled = !state.profileSaving) {
+        Text(if (state.profileSaving) "保存中" else "保存")
+      }
+    },
+    dismissButton = {
+      TextButton(onClick = onDismiss, enabled = !state.profileSaving) {
+        Text("取消")
+      }
+    },
+  )
+}
+
+@Composable
+private fun EditPasswordDialog(
+  state: ProfileUiState,
+  onCurrentChange: (String) -> Unit,
+  onNewChange: (String) -> Unit,
+  onConfirmChange: (String) -> Unit,
+  onDismiss: () -> Unit,
+  onSubmit: () -> Unit,
+) {
+  AlertDialog(
+    onDismissRequest = { if (!state.passwordSaving) onDismiss() },
+    title = { Text("修改密码") },
+    text = {
+      Column {
+        OutlinedTextField(
+          value = state.currentPassword,
+          onValueChange = onCurrentChange,
+          label = { Text("当前密码") },
+          visualTransformation = PasswordVisualTransformation(),
+          singleLine = true,
+          enabled = !state.passwordSaving,
+          modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+          value = state.newPassword,
+          onValueChange = onNewChange,
+          label = { Text("新密码") },
+          visualTransformation = PasswordVisualTransformation(),
+          singleLine = true,
+          enabled = !state.passwordSaving,
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+        OutlinedTextField(
+          value = state.confirmPassword,
+          onValueChange = onConfirmChange,
+          label = { Text("确认新密码") },
+          visualTransformation = PasswordVisualTransformation(),
+          singleLine = true,
+          enabled = !state.passwordSaving,
+          modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+        state.passwordMessage?.let { ProfileMessage(it) }
+      }
+    },
+    confirmButton = {
+      Button(onClick = onSubmit, enabled = !state.passwordSaving) {
+        Text(if (state.passwordSaving) "保存中" else "保存")
+      }
+    },
+    dismissButton = {
+      TextButton(onClick = onDismiss, enabled = !state.passwordSaving) {
+        Text("取消")
+      }
+    },
+  )
 }

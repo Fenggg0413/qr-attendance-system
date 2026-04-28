@@ -31,7 +31,9 @@ fun TopBar(title: String, subtitle: String, avatarName: String, modifier: Modifi
   ) {
     Column {
       Text(subtitle, color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-      Text(title, style = MaterialTheme.typography.titleMedium)
+      if (title.isNotBlank()) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+      }
     }
     Avatar(avatarName)
   }

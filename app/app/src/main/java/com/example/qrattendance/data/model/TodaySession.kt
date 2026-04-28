@@ -5,6 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class TodaySession(
   val id: Long = 0,
+  val slotId: Long = 0,
+  val period: Int = 0,
   val courseId: Long = 0,
   val courseName: String = "",
   val classroomName: String = "",

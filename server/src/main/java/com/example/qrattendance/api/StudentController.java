@@ -164,34 +164,42 @@ public class StudentController {
     List<Map<String, Object>> todaySessions =
         jdbc.queryForList(
             """
+            WITH latest_sessions AS (
+              SELECT *
+              FROM attendance_sessions
+              WHERE id IN (
+                SELECT MAX(id)
+                FROM attendance_sessions
+                WHERE substr(started_at, 1, 10) = ?
+                GROUP BY course_id, teacher_id
+              )
+            )
             SELECT se.id,
+                   css.id slotId,
+                   css.period,
                    co.id courseId,
                    co.name courseName,
                    COALESCE(cl.name, '') classroomName,
                    se.started_at startedAt,
                    se.ends_at endsAt,
                    se.status,
+                   se.method,
                    COALESCE(ar.status, '') recordStatus,
                    CASE WHEN lr.id IS NULL THEN 0 ELSE 1 END hasLeave
-            FROM attendance_sessions se
-            JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
+            FROM course_schedule_slots css
+            JOIN course_assignments ca ON ca.course_id = css.course_id AND ca.teacher_id = css.teacher_id
             JOIN course_enrollments ce ON ce.assignment_id = ca.id
-            JOIN courses co ON co.id = se.course_id
+            JOIN courses co ON co.id = css.course_id
+            JOIN classrooms cl ON cl.id = css.classroom_id
+            LEFT JOIN latest_sessions se ON se.course_id = css.course_id AND se.teacher_id = css.teacher_id
             LEFT JOIN attendance_records ar ON ar.session_id = se.id AND ar.student_id = ce.student_id
             LEFT JOIN leave_requests lr ON lr.session_id = se.id AND lr.student_id = ce.student_id
-            LEFT JOIN (
-              SELECT course_id, teacher_id, MIN(classroom_id) classroom_id
-              FROM course_schedule_slots
-              WHERE weekday = ?
-              GROUP BY course_id, teacher_id
-            ) today_slot ON today_slot.course_id = se.course_id AND today_slot.teacher_id = se.teacher_id
-            LEFT JOIN classrooms cl ON cl.id = today_slot.classroom_id
-            WHERE ce.student_id = ? AND substr(se.started_at, 1, 10) = ?
-            ORDER BY se.started_at DESC, se.id DESC
+            WHERE ce.student_id = ? AND css.weekday = ?
+            ORDER BY css.period, co.id, css.id
             """,
-            weekday,
+            today,
             studentId,
-            today);
+            weekday);
 
     return Map.of(
         "todayCount",
@@ -212,25 +220,19 @@ public class StudentController {
         todaySessions.stream()
             .map(
                 row ->
-                    Map.<String, Object>of(
-                        "id",
-                        row.get("id"),
-                        "courseId",
-                        row.get("courseId"),
-                        "courseName",
-                        row.get("courseName"),
-                        "classroomName",
-                        row.get("classroomName"),
-                        "startedAt",
-                        row.get("startedAt"),
-                        "endsAt",
-                        row.get("endsAt"),
-                        "status",
-                        row.get("status"),
-                        "recordStatus",
-                        row.get("recordStatus"),
-                        "hasLeave",
-                        asBoolean(row.get("hasLeave"))))
+                    Map.<String, Object>ofEntries(
+                        Map.entry("id", row.get("id") == null ? 0 : row.get("id")),
+                        Map.entry("slotId", row.get("slotId")),
+                        Map.entry("period", row.get("period")),
+                        Map.entry("courseId", row.get("courseId")),
+                        Map.entry("courseName", row.get("courseName")),
+                        Map.entry("classroomName", row.get("classroomName")),
+                        Map.entry("startedAt", row.get("startedAt") == null ? "" : row.get("startedAt")),
+                        Map.entry("endsAt", row.get("endsAt") == null ? "" : row.get("endsAt")),
+                        Map.entry("status", row.get("status") == null ? "" : row.get("status")),
+                        Map.entry("method", row.get("method") == null ? "QR" : row.get("method")),
+                        Map.entry("recordStatus", row.get("recordStatus")),
+                        Map.entry("hasLeave", asBoolean(row.get("hasLeave")))))
             .toList());
   }
 

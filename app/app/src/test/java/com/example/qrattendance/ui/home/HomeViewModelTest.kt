@@ -13,5 +13,7 @@ class HomeViewModelTest {
     vm.load()
     assertFalse(vm.uiState.value.loading)
     assertEquals(3, vm.uiState.value.dashboard?.todayCount)
+    assertEquals(1L, vm.uiState.value.dashboard?.todaySessions?.firstOrNull()?.slotId)
+    assertEquals(1, vm.uiState.value.dashboard?.todaySessions?.firstOrNull()?.period)
   }
 }

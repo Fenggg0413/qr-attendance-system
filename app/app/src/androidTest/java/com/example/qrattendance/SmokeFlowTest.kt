@@ -11,6 +11,6 @@ class SmokeFlowTest {
 
   @Test
   fun appLaunchesToLoginOrMain() {
-    rule.onNodeWithText("学生考勤助手").assertExists()
+    rule.onNodeWithText("使用学生账号登录").assertExists()
   }
 }

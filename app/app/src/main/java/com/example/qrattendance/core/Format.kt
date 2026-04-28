@@ -1,6 +1,7 @@
 package com.example.qrattendance.core
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
@@ -11,6 +12,14 @@ object Format {
   fun percent(value: Double): String = String.format("%.1f%%", value * 100)
 
   fun today(): LocalDate = LocalDate.now()
+
+  fun greeting(time: LocalTime = LocalTime.now()): String =
+    when (time.hour) {
+      in 5..10 -> "早上好 ☀️"
+      in 11..13 -> "中午好 🍚"
+      in 14..17 -> "下午好 🌤️"
+      else -> "晚上好 🌙"
+    }
 
   fun recordDateLabel(date: LocalDate): String =
     when (date) {

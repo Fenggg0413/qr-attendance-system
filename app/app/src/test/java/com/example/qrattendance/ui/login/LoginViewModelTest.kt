@@ -12,8 +12,15 @@ class LoginViewModelTest {
   fun loginPersistsSession() = runTest {
     val store = MemorySessionStore()
     val vm = LoginViewModel(FakeStudentApi(), store)
-    vm.login("student1", "student123")
+    vm.login("B22042101", "123456")
     assertTrue(vm.uiState.value.loggedIn)
-    assertEquals("student1", store.current()?.username)
+    assertEquals("B22042101", store.current()?.username)
+  }
+
+  @Test
+  fun loginFieldsStartEmpty() {
+    val vm = LoginViewModel(FakeStudentApi(), MemorySessionStore())
+    assertEquals("", vm.uiState.value.username)
+    assertEquals("", vm.uiState.value.password)
   }
 }

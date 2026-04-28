@@ -11,6 +11,10 @@ import com.example.qrattendance.ui.login.LoginScreen
 @Composable
 fun AppNav() {
   val container = LocalContainer.current
+  val current = container.sessionStore.current()
+  if (shouldClearLegacySession(current)) {
+    container.sessionStore.clear()
+  }
   var loggedIn by remember { mutableStateOf(container.sessionStore.current() != null) }
   if (loggedIn) {
     MainScaffold(onLogout = {
@@ -21,3 +25,6 @@ fun AppNav() {
     LoginScreen(onLoggedIn = { loggedIn = true })
   }
 }
+
+fun shouldClearLegacySession(session: com.example.qrattendance.data.model.SessionSnapshot?): Boolean =
+  session?.username == "student1"

@@ -48,8 +48,8 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
       modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Color.White, RoundedCornerShape(16.dp)).padding(16.dp),
       verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-      OutlinedTextField(value = state.username, onValueChange = vm::updateUsername, label = { Text("账号") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-      OutlinedTextField(value = state.password, onValueChange = vm::updatePassword, label = { Text("密码") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
+      OutlinedTextField(value = state.username, onValueChange = vm::updateUsername, label = { Text("账号") }, placeholder = { Text("请输入学号账号") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+      OutlinedTextField(value = state.password, onValueChange = vm::updatePassword, label = { Text("密码") }, placeholder = { Text("默认密码 123456") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
       state.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
       Button(onClick = { scope.launch { vm.login() } }, enabled = !state.loading, modifier = Modifier.fillMaxWidth().height(48.dp)) {
         Icon(Icons.Rounded.Login, contentDescription = null)

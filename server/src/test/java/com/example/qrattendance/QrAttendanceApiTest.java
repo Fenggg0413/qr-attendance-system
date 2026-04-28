@@ -709,10 +709,32 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$.lateCount", is(1)))
         .andExpect(jsonPath("$.excusedCount", is(1)))
         .andExpect(jsonPath("$.semesterAttendanceRate", is(0.5)))
-        .andExpect(jsonPath("$.todaySessions[?(@.id == " + presentSession + ")].courseName").value(org.hamcrest.Matchers.hasItem("学生仪表盘课程-" + suffix)))
-        .andExpect(jsonPath("$.todaySessions[?(@.id == " + presentSession + ")].classroomName").value(org.hamcrest.Matchers.hasItem("未来教室 101-" + suffix)))
-        .andExpect(jsonPath("$.todaySessions[?(@.id == " + presentSession + ")].recordStatus").value(org.hamcrest.Matchers.hasItem("PRESENT")))
-        .andExpect(jsonPath("$.todaySessions[?(@.id == " + absentSession + ")].hasLeave").value(org.hamcrest.Matchers.hasItem(true)));
+        .andExpect(jsonPath("$.todaySessions.length()", is(1)))
+        .andExpect(jsonPath("$.todaySessions[0].courseName", is("学生仪表盘课程-" + suffix)))
+        .andExpect(jsonPath("$.todaySessions[0].classroomName", is("未来教室 101-" + suffix)))
+        .andExpect(jsonPath("$.todaySessions[0].period", is(1)))
+        .andExpect(jsonPath("$.todaySessions[0].recordStatus", is("EXCUSED")));
+  }
+
+  @Test
+  void studentDashboardDoesNotShowAttendanceSessionsOutsideTodaySchedule() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("非今日课表学院-" + suffix);
+    long teacherId = createTeacher("teacher-not-today-" + suffix, "teacher123", "非今日课表老师", departmentId);
+    long studentId = createStudent("student-not-today-" + suffix, "非今日课表学生", "NTODAY-" + suffix, departmentId);
+    long courseId = createCourse("非今日课表课程-" + suffix, "NTODAY-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, teacherId, "2025-2026学年 春季学期");
+    enroll(assignmentId, studentId);
+    long classroomId = createClassroom("非今日教室 101-" + suffix, "非今日楼");
+    createScheduleSlot(courseId, teacherId, classroomId, otherWeekday(), 1, "必修");
+    insertSession(courseId, teacherId, "CLOSED");
+
+    String token = login("student-not-today-" + suffix, "student123");
+
+    mvc.perform(get("/api/student/dashboard").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.todayCount", is(0)))
+        .andExpect(jsonPath("$.todaySessions").isEmpty());
   }
 
   @Test
@@ -771,7 +793,7 @@ class QrAttendanceApiTest {
   void studentCheckInRejectsOldQrAndDeduplicatesCurrentQr() throws Exception {
     String teacherToken = login("teacher1", "teacher123");
     long sessionId = createSession(teacherToken);
-    String studentToken = login("student1", "student123");
+    String studentToken = login("B22042101", "123456");
     long oldBucket = System.currentTimeMillis() / 1000 / QrTokenService.BUCKET_SECONDS - 1;
 
     mvc.perform(
@@ -803,7 +825,7 @@ class QrAttendanceApiTest {
   void approvedLeaveCreatesExcusedRecordForStatistics() throws Exception {
     String teacherToken = login("teacher1", "teacher123");
     long sessionId = createSession(teacherToken);
-    String studentToken = login("student1", "student123");
+    String studentToken = login("B22042101", "123456");
     String adminToken = login("admin", "admin123");
 
     JsonNode leave =
@@ -1043,6 +1065,10 @@ class QrAttendanceApiTest {
       case SATURDAY -> "周六";
       case SUNDAY -> "周日";
     };
+  }
+
+  private String otherWeekday() {
+    return "周一".equals(todayWeekday()) ? "周二" : "周一";
   }
 
   private long insertUser(String username, String password, String role, String displayName) {

@@ -40,6 +40,7 @@ import com.example.qrattendance.ui.components.QuickStatCard
 import com.example.qrattendance.ui.components.SectionHeader
 import com.example.qrattendance.ui.components.StatusBadge
 import com.example.qrattendance.ui.components.TopBar
+import com.example.qrattendance.ui.schedule.SchedulePeriods
 import com.example.qrattendance.ui.theme.Background
 import com.example.qrattendance.ui.theme.Border
 import com.example.qrattendance.ui.theme.Primary
@@ -56,10 +57,13 @@ fun HomeScreen(onOpenScan: () -> Unit) {
   val state by vm.uiState.collectAsState()
   LaunchedEffect(Unit) { vm.load() }
   Column(modifier = Modifier.fillMaxSize().background(Background)) {
-    TopBar("学生考勤助手", "早上好", container.sessionStore.current()?.displayName ?: "学生")
+    TopBar("", Format.greeting(), container.sessionStore.current()?.displayName ?: "学生")
     if (state.loading) {
       Spacer(Modifier.height(40.dp))
       CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
+    } else if (state.error != null) {
+      Spacer(Modifier.height(40.dp))
+      EmptyState(state.error ?: "加载失败")
     } else {
       val dashboard = state.dashboard
       LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -89,7 +93,7 @@ fun HomeScreen(onOpenScan: () -> Unit) {
         }
         item { SectionHeader("今日课程") }
         val sessions = dashboard?.todaySessions.orEmpty()
-        if (sessions.isEmpty()) item { EmptyState("今天暂无课程") } else items(sessions, key = { it.id }) { session ->
+        if (sessions.isEmpty()) item { EmptyState("今天暂无课程") } else items(sessions, key = { it.itemKey() }) { session ->
           TodaySessionRow(session, onOpenScan, Modifier.padding(horizontal = 16.dp))
         }
         item { Spacer(Modifier.height(12.dp)) }
@@ -111,8 +115,19 @@ private fun TodaySessionRow(session: TodaySession, onOpenScan: () -> Unit, modif
   ) {
     Column(modifier = Modifier.weight(1f)) {
       Text(session.courseName, style = MaterialTheme.typography.bodyMedium)
-      Text("${Format.compactDateTime(session.startedAt)} · ${session.classroomName.ifBlank { "未设置教室" }}", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+      Text("${session.timeLabel()} · ${session.classroomName.ifBlank { "未设置教室" }}", color = TextSecondary, style = MaterialTheme.typography.labelMedium)
     }
     StatusBadge(session.recordStatus.ifBlank { session.status })
   }
+}
+
+private fun TodaySession.itemKey(): String =
+  if (slotId > 0) "slot-$slotId" else "session-$id"
+
+private fun TodaySession.timeLabel(): String {
+  if (period > 0) {
+    val slot = SchedulePeriods.byPeriod(period)
+    return "${slot.start}-${slot.end}"
+  }
+  return Format.compactDateTime(startedAt)
 }
