@@ -1,6 +1,8 @@
 package com.example.qrattendance.data
 
+import java.net.URLDecoder
 import java.net.URI
+import java.nio.charset.StandardCharsets
 
 object QrPayloadParser {
   fun parse(payload: String): CheckInRequest? {
@@ -17,7 +19,7 @@ object QrPayloadParser {
             ?.toMap()
             ?: return null
         val sessionId = params["sessionId"]?.toLongOrNull() ?: return null
-        val token = params["token"]?.takeIf { it.isNotBlank() } ?: return null
+        val token = params["token"]?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }?.takeIf { it.isNotBlank() } ?: return null
         CheckInRequest(sessionId, token)
       }
       .getOrNull()

@@ -37,6 +37,10 @@ android {
         excludes += "/META-INF/{AL2.0,LGPL2.1}"
       }
     }
+
+    testOptions {
+      unitTests.isIncludeAndroidResources = true
+    }
 }
 
 kotlin {
@@ -57,6 +61,9 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.kotlinx.serialization.json)
+  implementation(libs.androidx.security.crypto)
+  implementation(libs.okhttp)
+  implementation(libs.lottie.compose)
 
   // Compose
   implementation(libs.androidx.compose.ui)
@@ -75,6 +82,13 @@ dependencies {
   // Local tests: jUnit, coroutines, Android runner
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.robolectric)
+  testImplementation(libs.turbine)
+  testImplementation(libs.okhttp.mockwebserver)
+  testImplementation(libs.androidx.compose.ui.test.junit4)
+  testImplementation(libs.androidx.compose.ui.test.manifest)
+  testImplementation(libs.androidx.test.core)
+  testImplementation(libs.androidx.test.ext.junit)
 
   // Instrumented tests: jUnit rules and runners
   androidTestImplementation(libs.androidx.test.core)

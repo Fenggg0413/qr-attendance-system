@@ -13,6 +13,7 @@ import com.example.qrattendance.auth.PasswordHasher;
 import com.example.qrattendance.qr.QrTokenService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -573,6 +574,120 @@ class QrAttendanceApiTest {
   }
 
   @Test
+  void studentCanFetchCoursesSessionsLeavesAndUpdateAccount() throws Exception {
+    StudentCourseSeed seed = seedStudentWithCourse("student-flow");
+    String token = login(seed.studentUsername(), "student123");
+
+    mvc.perform(get("/api/student/courses").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id", is((int) seed.courseId())))
+        .andExpect(jsonPath("$[0].name", is(seed.courseName())))
+        .andExpect(jsonPath("$[0].teacherName", is(seed.teacherName())));
+
+    mvc.perform(get("/api/student/sessions").param("scope", "active").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id", is((int) seed.sessionId())))
+        .andExpect(jsonPath("$[0].courseName", is(seed.courseName())))
+        .andExpect(jsonPath("$[0].checkedIn", is(false)))
+        .andExpect(jsonPath("$[0].hasLeave", is(false)))
+        .andExpect(jsonPath("$[0].canRequestLeave", is(true)));
+
+    JsonNode leave =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/student/leave-requests")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("sessionId", seed.sessionId(), "reason", "参加竞赛"))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+    mvc.perform(get("/api/student/leave-requests").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id", is(leave.get("id").asInt())))
+        .andExpect(jsonPath("$[0].courseName", is(seed.courseName())))
+        .andExpect(jsonPath("$[0].reason", is("参加竞赛")))
+        .andExpect(jsonPath("$[0].status", is("PENDING")));
+
+    mvc.perform(get("/api/student/sessions").param("scope", "active").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].hasLeave", is(true)))
+        .andExpect(jsonPath("$[0].canRequestLeave", is(false)));
+
+    mvc.perform(
+            put("/api/student/profile")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("displayName", "移动端学生"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.displayName", is("移动端学生")));
+
+    mvc.perform(
+            post("/api/student/password")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("currentPassword", "student123", "newPassword", "newstudent123"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.ok", is(true)));
+
+    login(seed.studentUsername(), "newstudent123");
+  }
+
+  @Test
+  void studentEndpointsRequireBearerToken() throws Exception {
+    mvc.perform(get("/api/student/courses")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/student/sessions")).andExpect(status().isUnauthorized());
+    mvc.perform(get("/api/student/leave-requests")).andExpect(status().isUnauthorized());
+    mvc.perform(put("/api/student/profile").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("displayName", "x"))))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(post("/api/student/password").contentType(MediaType.APPLICATION_JSON).content(json(Map.of("currentPassword", "a", "newPassword", "b"))))
+        .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void studentEndpointsRejectWrongRoleAndHideOtherStudentsData() throws Exception {
+    StudentCourseSeed owner = seedStudentWithCourse("student-owner");
+    StudentCourseSeed other = seedStudentWithCourse("student-other");
+    String teacherToken = login(owner.teacherUsername(), "teacher123");
+    String otherStudentToken = login(other.studentUsername(), "student123");
+
+    mvc.perform(get("/api/student/courses").header("Authorization", "Bearer " + teacherToken))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/student/sessions").header("Authorization", "Bearer " + teacherToken))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/student/leave-requests").header("Authorization", "Bearer " + teacherToken))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            put("/api/student/profile")
+                .header("Authorization", "Bearer " + teacherToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("displayName", "x"))))
+        .andExpect(status().isForbidden());
+    mvc.perform(
+            post("/api/student/password")
+                .header("Authorization", "Bearer " + teacherToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("currentPassword", "teacher123", "newPassword", "newpass123"))))
+        .andExpect(status().isForbidden());
+
+    mvc.perform(get("/api/student/courses").header("Authorization", "Bearer " + otherStudentToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.id == " + owner.courseId() + ")]").isEmpty());
+    mvc.perform(get("/api/student/sessions").header("Authorization", "Bearer " + otherStudentToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.id == " + owner.sessionId() + ")]").isEmpty());
+
+    mvc.perform(
+            post("/api/student/leave-requests")
+                .header("Authorization", "Bearer " + otherStudentToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("sessionId", owner.sessionId(), "reason", "跨学生请假"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void studentCheckInRejectsOldQrAndDeduplicatesCurrentQr() throws Exception {
     String teacherToken = login("teacher1", "teacher123");
     long sessionId = createSession(teacherToken);
@@ -803,6 +918,40 @@ class QrAttendanceApiTest {
         displayName);
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
+
+  private StudentCourseSeed seedStudentWithCourse(String prefix) {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("学生端学院-" + prefix + "-" + suffix);
+    String teacherUsername = "teacher-" + prefix + "-" + suffix;
+    String studentUsername = "student-" + prefix + "-" + suffix;
+    String teacherName = "学生端老师-" + suffix;
+    String courseName = "学生端课程-" + suffix;
+    long teacherId = createTeacher(teacherUsername, "teacher123", teacherName, departmentId);
+    long studentId = createStudent(studentUsername, "学生端学生", "S" + suffix, departmentId);
+    long courseId = createCourse(courseName, "STU-" + prefix + "-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, teacherId);
+    enroll(assignmentId, studentId);
+    String startedAt = Instant.now().minusSeconds(60).toString();
+    String endsAt = Instant.now().plusSeconds(600).toString();
+    jdbc.update(
+        "INSERT INTO attendance_sessions(course_id, teacher_id, started_at, ends_at, status, method) VALUES (?, ?, ?, ?, ?, ?)",
+        courseId,
+        teacherId,
+        startedAt,
+        endsAt,
+        "OPEN",
+        "QR");
+    long sessionId = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+    return new StudentCourseSeed(studentUsername, teacherUsername, teacherName, courseName, courseId, sessionId);
+  }
+
+  private record StudentCourseSeed(
+      String studentUsername,
+      String teacherUsername,
+      String teacherName,
+      String courseName,
+      long courseId,
+      long sessionId) {}
 
   private String json(Object value) throws Exception {
     return mapper.writeValueAsString(value);
