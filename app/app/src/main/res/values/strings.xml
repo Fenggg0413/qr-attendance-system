@@ -1,9 +1,3 @@
 <resources>
     <string name="app_name">学生考勤</string>
-    <string name="tab_home">首页</string>
-    <string name="tab_sessions">会话</string>
-    <string name="tab_records">记录</string>
-    <string name="tab_profile">我的</string>
-    <string name="action_scan">扫码签到</string>
-    <string name="action_leave">申请请假</string>
 </resources>

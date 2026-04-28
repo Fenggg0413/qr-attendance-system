@@ -14,6 +14,7 @@ import com.example.qrattendance.qr.QrTokenService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -636,6 +637,85 @@ class QrAttendanceApiTest {
   }
 
   @Test
+  void studentScheduleReturnsCurrentEnrollments() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("课表学院-" + suffix);
+    long teacherId = createTeacher("teacher-schedule-" + suffix, "teacher123", "课表老师", departmentId);
+    long studentId = createStudent("student-schedule-" + suffix, "课表学生", "SCH-" + suffix, departmentId);
+    long otherStudentId = createStudent("student-schedule-other-" + suffix, "其他学生", "SCHO-" + suffix, departmentId);
+    long courseId = createCourse("移动应用开发-" + suffix, "MOBILE-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, teacherId, "2025-2026学年 春季学期");
+    enroll(assignmentId, studentId);
+    long classroomId = createClassroom("综合楼 302-" + suffix, "综合楼");
+    createScheduleSlot(courseId, teacherId, classroomId, "周三", 2, "必修");
+
+    String token = login("student-schedule-" + suffix, "student123");
+    String otherToken = login("student-schedule-other-" + suffix, "student123");
+
+    mvc.perform(get("/api/student/schedule").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].weekday", is("周三")))
+        .andExpect(jsonPath("$[0].period", is(2)))
+        .andExpect(jsonPath("$[0].courseType", is("必修")))
+        .andExpect(jsonPath("$[0].courseId", is((int) courseId)))
+        .andExpect(jsonPath("$[0].courseName", is("移动应用开发-" + suffix)))
+        .andExpect(jsonPath("$[0].courseCode", is("MOBILE-" + suffix)))
+        .andExpect(jsonPath("$[0].classroomName", is("综合楼 302-" + suffix)))
+        .andExpect(jsonPath("$[0].classroomLocation", is("综合楼")))
+        .andExpect(jsonPath("$[0].teacherName", is("课表老师")))
+        .andExpect(jsonPath("$[0].term", is("2025-2026学年 春季学期")));
+
+    mvc.perform(get("/api/student/schedule").header("Authorization", "Bearer " + otherToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$").isEmpty());
+  }
+
+  @Test
+  void studentDashboardReturnsAggregates() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("学生仪表盘学院-" + suffix);
+    long teacherId = createTeacher("teacher-student-dashboard-" + suffix, "teacher123", "学生仪表盘老师", departmentId);
+    long studentId = createStudent("student-dashboard-api-" + suffix, "学生仪表盘学生", "DASH-STU-" + suffix, departmentId);
+    long courseId = createCourse("学生仪表盘课程-" + suffix, "SDASH-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, teacherId, "2025-2026学年 春季学期");
+    enroll(assignmentId, studentId);
+    long classroomId = createClassroom("未来教室 101-" + suffix, "未来教室");
+    createScheduleSlot(courseId, teacherId, classroomId, todayWeekday(), 1, "必修");
+
+    long presentSession = insertSession(courseId, teacherId, "OPEN");
+    long lateSession = insertSession(courseId, teacherId, "CLOSED");
+    long absentSession = insertSession(courseId, teacherId, "CLOSED");
+    long excusedSession = insertSession(courseId, teacherId, "CLOSED");
+    insertRecord(presentSession, studentId, "PRESENT");
+    insertRecord(lateSession, studentId, "LATE");
+    insertRecord(absentSession, studentId, "ABSENT");
+    insertRecord(excusedSession, studentId, "EXCUSED");
+    jdbc.update(
+        "INSERT INTO leave_requests(session_id, student_id, reason, status, created_at) VALUES (?, ?, ?, ?, ?)",
+        absentSession,
+        studentId,
+        "缺勤申诉",
+        "PENDING",
+        Instant.now().toString());
+
+    String token = login("student-dashboard-api-" + suffix, "student123");
+
+    mvc.perform(get("/api/student/dashboard").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.todayCount", is(1)))
+        .andExpect(jsonPath("$.checkedInCount", is(1)))
+        .andExpect(jsonPath("$.pendingLeaveCount", is(1)))
+        .andExpect(jsonPath("$.absentCount", is(1)))
+        .andExpect(jsonPath("$.lateCount", is(1)))
+        .andExpect(jsonPath("$.excusedCount", is(1)))
+        .andExpect(jsonPath("$.semesterAttendanceRate", is(0.5)))
+        .andExpect(jsonPath("$.todaySessions[?(@.id == " + presentSession + ")].courseName").value(org.hamcrest.Matchers.hasItem("学生仪表盘课程-" + suffix)))
+        .andExpect(jsonPath("$.todaySessions[?(@.id == " + presentSession + ")].classroomName").value(org.hamcrest.Matchers.hasItem("未来教室 101-" + suffix)))
+        .andExpect(jsonPath("$.todaySessions[?(@.id == " + presentSession + ")].recordStatus").value(org.hamcrest.Matchers.hasItem("PRESENT")))
+        .andExpect(jsonPath("$.todaySessions[?(@.id == " + absentSession + ")].hasLeave").value(org.hamcrest.Matchers.hasItem(true)));
+  }
+
+  @Test
   void studentEndpointsRequireBearerToken() throws Exception {
     mvc.perform(get("/api/student/courses")).andExpect(status().isUnauthorized());
     mvc.perform(get("/api/student/sessions")).andExpect(status().isUnauthorized());
@@ -893,6 +973,11 @@ class QrAttendanceApiTest {
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
 
+  private long createAssignment(long courseId, long teacherId, String term) {
+    jdbc.update("INSERT INTO course_assignments(course_id, teacher_id, term) VALUES (?, ?, ?)", courseId, teacherId, term);
+    return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
   private long createStudent(String username, String name, String studentNo, long departmentId) {
     long userId = insertUser(username, "student123", "STUDENT", name);
     jdbc.update("INSERT INTO students(user_id, department_id, name, student_no) VALUES (?, ?, ?, ?)", userId, departmentId, name, studentNo);
@@ -907,6 +992,57 @@ class QrAttendanceApiTest {
 
   private void enroll(long assignmentId, long studentId) {
     jdbc.update("INSERT INTO course_enrollments(assignment_id, student_id) VALUES (?, ?)", assignmentId, studentId);
+  }
+
+  private long createClassroom(String name, String building) {
+    jdbc.update("INSERT INTO classrooms(name, building, capacity) VALUES (?, ?, ?)", name, building, 80);
+    return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private long createScheduleSlot(long courseId, long teacherId, long classroomId, String weekday, int period, String courseType) {
+    jdbc.update(
+        "INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)",
+        courseId,
+        teacherId,
+        classroomId,
+        weekday,
+        period,
+        courseType);
+    return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private long insertSession(long courseId, long teacherId, String status) {
+    jdbc.update(
+        "INSERT INTO attendance_sessions(course_id, teacher_id, started_at, ends_at, status, method) VALUES (?, ?, ?, ?, ?, ?)",
+        courseId,
+        teacherId,
+        Instant.now().minusSeconds(60).toString(),
+        Instant.now().plusSeconds(600).toString(),
+        status,
+        "QR");
+    return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private void insertRecord(long sessionId, long studentId, String status) {
+    jdbc.update(
+        "INSERT INTO attendance_records(session_id, student_id, status, checked_in_at, source) VALUES (?, ?, ?, ?, ?)",
+        sessionId,
+        studentId,
+        status,
+        Instant.now().toString(),
+        "QR");
+  }
+
+  private String todayWeekday() {
+    return switch (LocalDate.now().getDayOfWeek()) {
+      case MONDAY -> "周一";
+      case TUESDAY -> "周二";
+      case WEDNESDAY -> "周三";
+      case THURSDAY -> "周四";
+      case FRIDAY -> "周五";
+      case SATURDAY -> "周六";
+      case SUNDAY -> "周日";
+    };
   }
 
   private long insertUser(String username, String password, String role, String displayName) {

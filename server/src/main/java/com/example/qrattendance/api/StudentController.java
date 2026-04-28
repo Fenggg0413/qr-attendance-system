@@ -4,6 +4,7 @@ import com.example.qrattendance.auth.AuthContext;
 import com.example.qrattendance.auth.PasswordHasher;
 import com.example.qrattendance.qr.QrTokenService;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -94,6 +95,143 @@ public class StudentController {
         ORDER BY co.id
         """,
         studentId);
+  }
+
+  @GetMapping("/schedule")
+  public List<Map<String, Object>> schedule() {
+    long studentId = studentId();
+    return jdbc.queryForList(
+        """
+        SELECT css.id slotId,
+               css.weekday,
+               css.period,
+               css.course_type courseType,
+               co.id courseId,
+               co.name courseName,
+               co.code courseCode,
+               cl.name classroomName,
+               COALESCE(cl.building, '') classroomLocation,
+               u.display_name teacherName,
+               COALESCE(ca.term, '') term
+        FROM course_enrollments ce
+        JOIN course_assignments ca ON ca.id = ce.assignment_id
+        JOIN courses co ON co.id = ca.course_id
+        JOIN course_schedule_slots css ON css.course_id = co.id AND css.teacher_id = ca.teacher_id
+        JOIN classrooms cl ON cl.id = css.classroom_id
+        JOIN teachers t ON t.id = ca.teacher_id
+        JOIN users u ON u.id = t.user_id
+        WHERE ce.student_id = ?
+        ORDER BY CASE css.weekday
+                   WHEN '周一' THEN 1
+                   WHEN '周二' THEN 2
+                   WHEN '周三' THEN 3
+                   WHEN '周四' THEN 4
+                   WHEN '周五' THEN 5
+                   WHEN '周六' THEN 6
+                   WHEN '周日' THEN 7
+                   ELSE 8
+                 END,
+                 css.period,
+                 co.id
+        """,
+        studentId);
+  }
+
+  @GetMapping("/dashboard")
+  public Map<String, Object> dashboard() {
+    long studentId = studentId();
+    String today = LocalDate.now().toString();
+    String weekday = todayWeekday();
+    int todayCount =
+        count(
+            """
+            SELECT COUNT(*)
+            FROM course_enrollments ce
+            JOIN course_assignments ca ON ca.id = ce.assignment_id
+            JOIN course_schedule_slots css ON css.course_id = ca.course_id AND css.teacher_id = ca.teacher_id
+            WHERE ce.student_id = ? AND css.weekday = ?
+            """,
+            studentId,
+            weekday);
+    int checkedInCount = attendanceStatusCount(studentId, "PRESENT");
+    int absentCount = attendanceStatusCount(studentId, "ABSENT");
+    int lateCount = attendanceStatusCount(studentId, "LATE");
+    int excusedCount = attendanceStatusCount(studentId, "EXCUSED");
+    int pendingLeaveCount = count("SELECT COUNT(*) FROM leave_requests WHERE student_id = ? AND status = 'PENDING'", studentId);
+    int total = checkedInCount + absentCount + lateCount + excusedCount;
+    double attendanceRate = total == 0 ? 0.0 : ((double) checkedInCount + lateCount) / total;
+
+    List<Map<String, Object>> todaySessions =
+        jdbc.queryForList(
+            """
+            SELECT se.id,
+                   co.id courseId,
+                   co.name courseName,
+                   COALESCE(cl.name, '') classroomName,
+                   se.started_at startedAt,
+                   se.ends_at endsAt,
+                   se.status,
+                   COALESCE(ar.status, '') recordStatus,
+                   CASE WHEN lr.id IS NULL THEN 0 ELSE 1 END hasLeave
+            FROM attendance_sessions se
+            JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
+            JOIN course_enrollments ce ON ce.assignment_id = ca.id
+            JOIN courses co ON co.id = se.course_id
+            LEFT JOIN attendance_records ar ON ar.session_id = se.id AND ar.student_id = ce.student_id
+            LEFT JOIN leave_requests lr ON lr.session_id = se.id AND lr.student_id = ce.student_id
+            LEFT JOIN (
+              SELECT course_id, teacher_id, MIN(classroom_id) classroom_id
+              FROM course_schedule_slots
+              WHERE weekday = ?
+              GROUP BY course_id, teacher_id
+            ) today_slot ON today_slot.course_id = se.course_id AND today_slot.teacher_id = se.teacher_id
+            LEFT JOIN classrooms cl ON cl.id = today_slot.classroom_id
+            WHERE ce.student_id = ? AND substr(se.started_at, 1, 10) = ?
+            ORDER BY se.started_at DESC, se.id DESC
+            """,
+            weekday,
+            studentId,
+            today);
+
+    return Map.of(
+        "todayCount",
+        todayCount,
+        "checkedInCount",
+        checkedInCount,
+        "pendingLeaveCount",
+        pendingLeaveCount,
+        "absentCount",
+        absentCount,
+        "lateCount",
+        lateCount,
+        "excusedCount",
+        excusedCount,
+        "semesterAttendanceRate",
+        attendanceRate,
+        "todaySessions",
+        todaySessions.stream()
+            .map(
+                row ->
+                    Map.<String, Object>of(
+                        "id",
+                        row.get("id"),
+                        "courseId",
+                        row.get("courseId"),
+                        "courseName",
+                        row.get("courseName"),
+                        "classroomName",
+                        row.get("classroomName"),
+                        "startedAt",
+                        row.get("startedAt"),
+                        "endsAt",
+                        row.get("endsAt"),
+                        "status",
+                        row.get("status"),
+                        "recordStatus",
+                        row.get("recordStatus"),
+                        "hasLeave",
+                        asBoolean(row.get("hasLeave"))))
+            .toList());
   }
 
   @GetMapping("/sessions")
@@ -235,6 +373,41 @@ public class StudentController {
 
   private Map<String, Object> one(String sql, Object... args) {
     return jdbc.queryForList(sql, args).stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+  }
+
+  private int attendanceStatusCount(long studentId, String status) {
+    return count(
+        """
+        SELECT COUNT(*)
+        FROM attendance_records ar
+        JOIN attendance_sessions se ON se.id = ar.session_id
+        JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
+        JOIN course_enrollments ce ON ce.assignment_id = ca.id AND ce.student_id = ar.student_id
+        WHERE ar.student_id = ? AND ar.status = ?
+        """,
+        studentId,
+        status);
+  }
+
+  private int count(String sql, Object... args) {
+    Integer value = jdbc.queryForObject(sql, Integer.class, args);
+    return value == null ? 0 : value;
+  }
+
+  private boolean asBoolean(Object value) {
+    return value instanceof Boolean bool ? bool : value instanceof Number number && number.intValue() != 0;
+  }
+
+  private String todayWeekday() {
+    return switch (LocalDate.now().getDayOfWeek()) {
+      case MONDAY -> "周一";
+      case TUESDAY -> "周二";
+      case WEDNESDAY -> "周三";
+      case THURSDAY -> "周四";
+      case FRIDAY -> "周五";
+      case SATURDAY -> "周六";
+      case SUNDAY -> "周日";
+    };
   }
 
   private void ensureStudentCanAccessSession(long studentId, long sessionId) {
