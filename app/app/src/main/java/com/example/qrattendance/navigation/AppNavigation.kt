@@ -90,7 +90,7 @@ fun AppNavigation(container: AppContainer, modifier: Modifier = Modifier) {
     Login -> {
       val viewModel: LoginViewModel = viewModel(factory = container.loginViewModelFactory)
       val state by viewModel.uiState.collectAsStateWithLifecycle()
-      LoginScreen(state, viewModel::updateUsername, viewModel::updatePassword, viewModel::login, modifier)
+      LoginScreen(state, viewModel::updateUsername, viewModel::updatePassword, viewModel::login, modifier, viewModel::updateServerUrl)
     }
     HomeShell -> HomeShellScreen(container, onScan = { backStack.add(Scan) }, onLeave = { id, name -> backStack.add(LeaveCompose(id, name)) }, modifier = modifier)
     Scan -> {

@@ -11,6 +11,7 @@ import org.junit.Test
 class NetworkSecurityConfigTest {
   private val manifestPath = Path.of("src", "main", "AndroidManifest.xml")
   private val configPath = Path.of("src", "main", "res", "xml", "network_security_config.xml")
+  private val debugConfigPath = Path.of("src", "debug", "res", "xml", "network_security_config.xml")
 
   @Test
   fun manifest_referencesNetworkSecurityConfig() {
@@ -34,5 +35,14 @@ class NetworkSecurityConfigTest {
       "Config should not enable cleartext globally",
       config.contains("<base-config cleartextTrafficPermitted=\"true\""),
     )
+  }
+
+  @Test
+  fun debugNetworkSecurityConfig_allowsLocalDevelopmentCleartext() {
+    assertTrue("debug network_security_config.xml should exist", debugConfigPath.exists())
+
+    val config = debugConfigPath.readText()
+
+    assertTrue(config.contains("<base-config cleartextTrafficPermitted=\"true\""))
   }
 }

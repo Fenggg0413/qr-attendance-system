@@ -18,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.SettingsEthernet
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Card
@@ -38,13 +39,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.qrattendance.R
 
 @Composable
-fun LoginScreen(state: LoginUiState, onUsernameChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onLogin: () -> Unit, modifier: Modifier = Modifier) {
+fun LoginScreen(
+  state: LoginUiState,
+  onUsernameChange: (String) -> Unit,
+  onPasswordChange: (String) -> Unit,
+  onLogin: () -> Unit,
+  modifier: Modifier = Modifier,
+  onServerUrlChange: (String) -> Unit = {},
+) {
   var passwordVisible by remember { mutableStateOf(false) }
   Column(
     modifier
@@ -75,6 +84,16 @@ fun LoginScreen(state: LoginUiState, onUsernameChange: (String) -> Unit, onPassw
         .padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 100.dp),
     ) {
       Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        OutlinedTextField(
+          value = state.serverUrl,
+          onValueChange = onServerUrlChange,
+          modifier = Modifier.fillMaxWidth().testTag("serverUrlField"),
+          label = { Text("服务器地址") },
+          placeholder = { Text("http://192.168.1.23:8080/api") },
+          supportingText = { Text("真机请填写电脑局域网 IP") },
+          leadingIcon = { Icon(Icons.Outlined.SettingsEthernet, contentDescription = null) },
+          singleLine = true,
+        )
         OutlinedTextField(
           value = state.username,
           onValueChange = onUsernameChange,

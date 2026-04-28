@@ -28,6 +28,7 @@ import okhttp3.OkHttpClient
 
 class AppContainer(
   val sessionStore: SessionStore,
+  val apiEndpointStore: ApiEndpointStore = InMemoryApiEndpointStore(),
   val authRepository: AuthRepository,
   val sessionsRepository: SessionsRepository,
   val recordsRepository: RecordsRepository,
@@ -40,6 +41,7 @@ class AppContainer(
 
   private constructor(graph: ProductionGraph) : this(
     sessionStore = graph.sessionStore,
+    apiEndpointStore = graph.apiEndpointStore,
     authRepository = graph.authRepository,
     coursesRepository = graph.coursesRepository,
     sessionsRepository = graph.sessionsRepository,
@@ -49,7 +51,7 @@ class AppContainer(
     scanRepository = graph.scanRepository,
   )
 
-  val loginViewModelFactory = viewModelFactory { LoginViewModel(authRepository) }
+  val loginViewModelFactory = viewModelFactory { LoginViewModel(authRepository, apiEndpointStore) }
   val homeViewModelFactory = viewModelFactory { HomeViewModel(sessionStore, sessionsRepository, recordsRepository) }
   val sessionsViewModelFactory = viewModelFactory { SessionsViewModel(sessionsRepository) }
   val recordsViewModelFactory = viewModelFactory { RecordsViewModel(recordsRepository) }
@@ -60,10 +62,12 @@ class AppContainer(
   private companion object {
     fun createProductionGraph(context: Context): ProductionGraph {
       val sessionStore = EncryptedSharedPreferencesSessionStore(context)
+      val apiEndpointStore = SharedPreferencesApiEndpointStore(context)
       val okHttpClient = OkHttpClient()
-      val apiClient = AttendanceApiClient(client = okHttpClient, onUnauthorized = { sessionStore.clear() })
+      val apiClient = AttendanceApiClient(client = okHttpClient, baseUrlProvider = { apiEndpointStore.baseUrl.value }, onUnauthorized = { sessionStore.clear() })
       return ProductionGraph(
         sessionStore = sessionStore,
+        apiEndpointStore = apiEndpointStore,
         authRepository = RemoteAuthRepository(apiClient, sessionStore),
         coursesRepository = RemoteCoursesRepository(apiClient, sessionStore),
         sessionsRepository = RemoteSessionsRepository(apiClient, sessionStore),
@@ -78,6 +82,7 @@ class AppContainer(
 
 private data class ProductionGraph(
   val sessionStore: SessionStore,
+  val apiEndpointStore: ApiEndpointStore,
   val authRepository: AuthRepository,
   val coursesRepository: CoursesRepository,
   val sessionsRepository: SessionsRepository,

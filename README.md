@@ -52,7 +52,7 @@ cd app
 GRADLE_USER_HOME=/tmp/dynamic_qr_attendance_gradle ./gradlew :app:assembleDebug
 ```
 
-模拟器中 API 地址默认为 `http://10.0.2.2:8080/api`。
+模拟器中 API 地址默认为 `http://10.0.2.2:8080/api`。真机调试时，在登录页的“服务器地址”中填写运行后端电脑的局域网地址，例如 `http://192.168.1.23:8080/api`；手机和电脑需要处在同一网络，且电脑防火墙需允许访问 `8080` 端口。
 
 ## 演示账号
 

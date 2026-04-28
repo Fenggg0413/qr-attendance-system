@@ -38,6 +38,19 @@ class AttendanceApiClientTest {
   }
 
   @Test
+  fun request_usesLatestBaseUrlFromProvider() = runTest {
+    server.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"jwt-token","user":{"username":"student1","role":"STUDENT","displayName":"李同学"}}"""))
+    val firstBaseUrl = "http://127.0.0.1:1/api"
+    val currentBaseUrl = server.url("/api").toString().trimEnd('/')
+    val client = AttendanceApiClient(baseUrlProvider = { currentBaseUrl }, baseUrl = firstBaseUrl)
+
+    val response = client.login("student1", "student123")
+
+    assertEquals("/api/auth/login", server.takeRequest().path)
+    assertEquals("jwt-token", response.token)
+  }
+
+  @Test
   fun courses_sendsBearerAndDecodesResponse() = runTest {
     server.enqueue(MockResponse().setResponseCode(200).setBody("""[{"id":7,"name":"移动开发","code":"MOB","teacherName":"张老师","term":"2026 春"}]"""))
     val client = AttendanceApiClient(baseUrl = server.url("/api").toString().trimEnd('/'))

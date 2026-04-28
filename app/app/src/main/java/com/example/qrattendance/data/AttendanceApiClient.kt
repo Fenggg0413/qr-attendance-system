@@ -12,6 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class AttendanceApiClient(
   private val baseUrl: String = "http://10.0.2.2:8080/api",
+  private val baseUrlProvider: () -> String = { baseUrl },
   private val client: OkHttpClient = OkHttpClient(),
   private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
   private val onUnauthorized: suspend () -> Unit = {},
@@ -54,7 +55,7 @@ class AttendanceApiClient(
       val requestBody = body?.toRequestBody(mediaType)
       val request =
         Request.Builder()
-          .url("$baseUrl$path")
+          .url("${baseUrlProvider()}$path")
           .method(method, requestBody)
           .header("Content-Type", "application/json")
           .also { builder -> bearer?.let { builder.header("Authorization", "Bearer $it") } }
