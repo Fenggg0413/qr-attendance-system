@@ -14,8 +14,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun EmptyState(title: String, subtitle: String, modifier: Modifier = Modifier, actionText: String? = null, onAction: (() -> Unit)? = null) {
   Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-    Text(title, style = MaterialTheme.typography.titleLarge)
-    Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(title, style = MaterialTheme.typography.titleMedium)
+    Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     if (actionText != null && onAction != null) {
       Button(onClick = onAction) { Text(actionText) }
     }

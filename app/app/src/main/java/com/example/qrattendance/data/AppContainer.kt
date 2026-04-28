@@ -50,7 +50,7 @@ class AppContainer(
   )
 
   val loginViewModelFactory = viewModelFactory { LoginViewModel(authRepository) }
-  val homeViewModelFactory = viewModelFactory { HomeViewModel(sessionStore, sessionsRepository, recordsRepository, leaveRepository) }
+  val homeViewModelFactory = viewModelFactory { HomeViewModel(sessionStore, sessionsRepository, recordsRepository) }
   val sessionsViewModelFactory = viewModelFactory { SessionsViewModel(sessionsRepository) }
   val recordsViewModelFactory = viewModelFactory { RecordsViewModel(recordsRepository) }
   val scanViewModelFactory = viewModelFactory { ScanViewModel(scanRepository) }
