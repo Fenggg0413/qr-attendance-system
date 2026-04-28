@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -66,7 +69,7 @@ fun ProfileScreen(onOpenLeave: () -> Unit, onLogout: () -> Unit) {
   val user = state.user
   Column(modifier = Modifier.fillMaxSize().background(Background)) {
     Column(
-      modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF1565C0), Primary, PrimaryLight))).padding(20.dp),
+      modifier = Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF1565C0), Primary, PrimaryLight))).padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()).padding(20.dp),
     ) {
       Avatar(user?.displayName ?: container.sessionStore.current()?.displayName ?: "学生", size = 68.dp)
       Text(user?.displayName ?: user?.name ?: "学生", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))

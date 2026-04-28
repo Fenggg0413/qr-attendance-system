@@ -25,10 +25,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -119,7 +122,7 @@ private fun PermissionPrompt(onRequest: () -> Unit) {
 private fun ScanChrome(message: String, onClose: () -> Unit) {
   val transition = rememberInfiniteTransition(label = "laser")
   val y by transition.animateFloat(12f, 204f, infiniteRepeatable(tween(1700), RepeatMode.Reverse), label = "laserY")
-  Column(Modifier.fillMaxSize().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+  Column(Modifier.fillMaxSize().padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
     Row(Modifier.align(Alignment.Start), verticalAlignment = Alignment.CenterVertically) {
       IconButton(onClick = onClose, modifier = Modifier.size(32.dp).background(Color.White.copy(alpha = 0.15f), CircleShape)) {
         Icon(Icons.Rounded.Close, contentDescription = "关闭", tint = Color.White)

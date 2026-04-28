@@ -5,11 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Login
@@ -47,7 +50,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
   LaunchedEffect(state.loggedIn) {
     if (state.loggedIn) onLoggedIn()
   }
-  Box(modifier = Modifier.fillMaxSize().background(Background)) {
+  Box(modifier = Modifier.fillMaxSize().background(Background).padding(WindowInsets.statusBars.asPaddingValues())) {
     Column(
       modifier = Modifier.fillMaxSize().padding(24.dp),
       verticalArrangement = Arrangement.Center,

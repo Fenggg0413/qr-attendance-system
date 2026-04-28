@@ -6,8 +6,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +28,7 @@ fun TopBar(title: String, subtitle: String, avatarName: String, modifier: Modifi
       .fillMaxWidth()
       .background(Surface)
       .border(BorderStroke(1.dp, Border))
+      .padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding())
       .padding(horizontal = 20.dp, vertical = 12.dp),
     horizontalArrangement = Arrangement.SpaceBetween,
     verticalAlignment = Alignment.CenterVertically,

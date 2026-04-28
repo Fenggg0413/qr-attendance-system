@@ -6,9 +6,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,7 +64,7 @@ fun LeaveListScreen(onBack: () -> Unit, onCompose: () -> Unit) {
 
 @Composable
 fun LeaveTopBar(title: String, onBack: () -> Unit) {
-  Row(Modifier.fillMaxWidth().background(Surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+  Row(Modifier.fillMaxWidth().background(Surface).padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
     IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, contentDescription = "返回") }
     Text(title, style = MaterialTheme.typography.titleSmall)
   }
