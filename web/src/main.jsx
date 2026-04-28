@@ -174,7 +174,7 @@ function App() {
     const raw = localStorage.getItem('qr-attendance-session');
     return raw ? JSON.parse(raw) : null;
   });
-  const [teacherView, setTeacherView] = useState('dashboard');
+  const [teacherView, setTeacherView] = useState('courses');
   const [adminView, setAdminView] = useState('dashboard');
   const [breadcrumb, setBreadcrumb] = useState(['首页', '我的课程']);
   const [collapsed, setCollapsed] = useState(false);
@@ -182,14 +182,14 @@ function App() {
   function onLogin(nextSession) {
     localStorage.setItem('qr-attendance-session', JSON.stringify(nextSession));
     setSession(nextSession);
-    setTeacherView('dashboard');
+    setTeacherView('courses');
     setAdminView('dashboard');
   }
 
   function logout() {
     localStorage.removeItem('qr-attendance-session');
     setSession(null);
-    setTeacherView('dashboard');
+    setTeacherView('courses');
     setAdminView('dashboard');
   }
 
@@ -210,13 +210,13 @@ function App() {
           </div>
           {isTeacher ? (
             <nav className="sideNav" aria-label="教师导航">
-              <button className={teacherView === 'dashboard' ? 'active' : ''} onClick={() => setTeacherView('dashboard')}>
-                <PieChart size={17} />
-                <span>仪表盘</span>
-              </button>
-              <button className={teacherView !== 'profile' && teacherView !== 'dashboard' ? 'active' : ''} onClick={() => setTeacherView('courses')}>
+              <button className={teacherView !== 'profile' && teacherView !== 'leave-requests' ? 'active' : ''} onClick={() => setTeacherView('courses')}>
                 <BookOpen size={17} />
                 <span>我的课程</span>
+              </button>
+              <button className={teacherView === 'leave-requests' ? 'active' : ''} onClick={() => setTeacherView('leave-requests')}>
+                <ClipboardCheck size={17} />
+                <span>申报审核</span>
               </button>
               <button className={teacherView === 'profile' ? 'active' : ''} onClick={() => setTeacherView('profile')}>
                 <UserRound size={17} />
@@ -379,7 +379,7 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
-    setBreadcrumb(['首页', view === 'dashboard' ? '仪表盘' : view === 'profile' ? '个人中心' : selectedCourse ? '课程详情' : '我的课程']);
+    setBreadcrumb(['首页', view === 'leave-requests' ? '申报审核' : view === 'profile' ? '个人中心' : selectedCourse ? '课程详情' : '我的课程']);
   }, [setBreadcrumb, selectedCourse, view]);
 
   useEffect(() => {
@@ -456,8 +456,8 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
     setDrawerRecords(await client.get(`/teacher/attendance-sessions/${sessionRow.id}/records`));
   }
 
-  if (view === 'dashboard') {
-    return <TeacherDashboard client={client} session={session} onAuthExpired={logout} />;
+  if (view === 'leave-requests') {
+    return <TeacherLeaveRequests client={client} onAuthExpired={logout} />;
   }
 
   if (view === 'profile') {
@@ -1152,75 +1152,165 @@ function StatCard({ icon, value, label }) {
   );
 }
 
-function TeacherDashboard({ client, session, onAuthExpired }) {
-  const [data, setData] = useState(null);
+function TeacherLeaveRequests({ client, onAuthExpired }) {
+  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [items, setItems] = useState([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState(null);
+  const [toast, setToast] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    client.get('/teacher/dashboard')
-      .then((next) => {
-        if (!cancelled) setData(next);
+    setLoading(true);
+    client.get(`/teacher/leave-requests?status=${statusFilter}`)
+      .then((data) => {
+        if (cancelled) return;
+        setItems(Array.isArray(data) ? data : []);
+        setError('');
       })
       .catch((err) => {
+        if (cancelled) return;
         if (err.status === 401) {
           onAuthExpired();
           return;
         }
-        if (!cancelled) setError(err.message ?? '仪表盘加载失败');
+        setError(err.message ?? '加载失败');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [client, onAuthExpired]);
+  }, [client, statusFilter, onAuthExpired]);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!data) return <div className="panel">加载中</div>;
+  async function review(id, approved) {
+    setActingId(id);
+    setError('');
+    try {
+      await client.post(`/teacher/leave-requests/${id}/review`, { approved });
+      setToast(approved ? '已通过该申报' : '已驳回该申报');
+      const data = await client.get(`/teacher/leave-requests?status=${statusFilter}`);
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.message ?? '审核失败');
+    } finally {
+      setActingId(null);
+      setTimeout(() => setToast(''), 2400);
+    }
+  }
 
-  const kpis = [
-    ['课程总数', data.kpis?.courseTotal ?? 0, BookOpen, 'blue'],
-    ['学生总数', data.kpis?.studentTotal ?? 0, UsersRound, 'blue'],
-    ['今日出勤', data.kpis?.todayPresent ?? 0, Check, 'green'],
-    ['今日缺勤', data.kpis?.todayAbsent ?? 0, X, 'red'],
-    ['今日迟到', data.kpis?.todayLate ?? 0, Clock, 'orange'],
-    ['考勤次数', data.kpis?.sessionTotal ?? 0, ClipboardCheck, 'green'],
+  const filters = [
+    ['PENDING', '待审核'],
+    ['APPROVED', '已通过'],
+    ['REJECTED', '已驳回'],
+    ['ALL', '全部'],
   ];
 
+  const pendingCount = items.filter((row) => row.status === 'PENDING').length;
+
   return (
-    <div className="adminDashboard">
-      <section className="welcomeBanner">
+    <div className="teacherPage">
+      <section className="pageHead">
         <div>
-          <h1>教师，您好</h1>
-          <p>{formatToday()} —— 这是您的今日考勤概览。</p>
+          <h1>申报审核</h1>
+          <p className="muted">审核学生提交的请假/特殊情况申报，通过后将自动登记为「已请假」考勤。</p>
+        </div>
+        <div className="summaryStrip">
+          <span><ClipboardCheck size={16} />当前列表 {items.length}{statusFilter === 'PENDING' ? `（待审核 ${pendingCount}）` : ''}</span>
         </div>
       </section>
 
-      <section className="adminKpiGrid">
-        {kpis.map(([label, value, Icon, tone]) => (
-          <article className="adminKpiCard" key={label}>
-            <span className={`adminKpiIcon ${tone}`}><Icon size={20} /></span>
-            <div>
-              <p>{label}</p>
-              <strong>{value}</strong>
-            </div>
-          </article>
-        ))}
-      </section>
-
-      <section className="dashboardCharts">
-        <div className="panel">
-          <div className="panelHead"><h2><BarChart3 size={17} />近 7 天出勤趋势</h2></div>
-          <TrendChart rows={data.trend ?? []} />
+      <section className="panel">
+        <div className="leaveFilterStrip" role="tablist" aria-label="状态筛选">
+          {filters.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === value}
+              className={statusFilter === value ? 'pill live' : 'pill'}
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
-        <div className="panel">
-          <div className="panelHead"><h2><PieChart size={17} />总体出勤状态分布</h2></div>
-          <DonutSummary distribution={data.distribution ?? {}} />
+        {error && <div className="error">{error}</div>}
+        {toast && <div className="leaveToast" role="status">{toast}</div>}
+        <div className="tableWrap">
+          <table className="adminTable">
+            <thead>
+              <tr>
+                <th>学生</th>
+                <th>课程</th>
+                <th>考勤时间</th>
+                <th>申报原因</th>
+                <th>状态</th>
+                <th>审核记录</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <tr><td colSpan={7}>加载中</td></tr>}
+              {!loading && items.length === 0 && (
+                <tr><td colSpan={7}>暂无申报</td></tr>
+              )}
+              {!loading && items.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <div>{row.student_name}</div>
+                    <small className="muted">{row.student_no}</small>
+                  </td>
+                  <td>
+                    <div>{row.course_name}</div>
+                    <small className="muted">{row.course_code}</small>
+                  </td>
+                  <td>{formatDate(row.session_started_at)}</td>
+                  <td>{row.reason}</td>
+                  <td><span className={`statusBadge ${String(row.status).toLowerCase()}`}>{statusText(row.status)}</span></td>
+                  <td>
+                    {row.status === 'PENDING' ? (
+                      <span className="muted">—</span>
+                    ) : (
+                      <div>
+                        <div>{row.reviewer_name ?? '-'}</div>
+                        <small className="muted">{formatDate(row.reviewed_at)}</small>
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    {row.status === 'PENDING' ? (
+                      <div className="actions">
+                        <button
+                          type="button"
+                          className="ghost"
+                          disabled={actingId === row.id}
+                          onClick={() => review(row.id, true)}
+                          aria-label={`通过 ${row.student_name} 的申报`}
+                        >
+                          <Check size={15} />通过
+                        </button>
+                        <button
+                          type="button"
+                          className="ghost"
+                          disabled={actingId === row.id}
+                          onClick={() => review(row.id, false)}
+                          aria-label={`驳回 ${row.student_name} 的申报`}
+                        >
+                          <X size={15} />驳回
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </section>
-
-      <section className="dashboardLower">
-        <CourseAttendanceTable rows={data.courseAttendance ?? []} />
-        <RecentActivities rows={data.recentActivities ?? []} />
       </section>
     </div>
   );

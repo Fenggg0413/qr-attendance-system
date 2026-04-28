@@ -1100,6 +1100,37 @@ th {
   background: #ffedd5;
 }
 
+.statusBadge.pending {
+  color: #6b21a8;
+  background: #ede9fe;
+}
+
+.statusBadge.approved {
+  color: #176b5b;
+  background: #dcfce7;
+}
+
+.statusBadge.rejected {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.leaveFilterStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.leaveToast {
+  margin: 6px 0 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 13px;
+}
+
 .adminCourseGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

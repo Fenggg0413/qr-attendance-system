@@ -636,6 +636,98 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$[0].status", is("EXCUSED")));
   }
 
+  @Test
+  void teacherCanReviewLeaveRequestsForOwnCoursesOnly() throws Exception {
+    long suffix = System.nanoTime();
+    String adminToken = login("admin", "admin123");
+    long departmentId = createDepartment("申报学院-" + suffix);
+    long ownerTeacherId =
+        createTeacher("teacher-leave-owner-" + suffix, "teacher123", "申报老师", departmentId);
+    createTeacher("teacher-leave-other-" + suffix, "teacher123", "无关老师", departmentId);
+    long studentId =
+        createStudent("student-leave-" + suffix, "申报学生", "L" + suffix, departmentId);
+    long courseId =
+        createCourse("申报课程-" + suffix, "LEAVE-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, ownerTeacherId);
+    enroll(assignmentId, studentId);
+
+    String ownerToken = login("teacher-leave-owner-" + suffix, "teacher123");
+    String otherToken = login("teacher-leave-other-" + suffix, "teacher123");
+    long sessionId = createSession(ownerToken, courseId);
+
+    String studentToken = login("student-leave-" + suffix, "student123");
+    JsonNode leave =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/student/leave-requests")
+                        .header("Authorization", "Bearer " + studentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("sessionId", sessionId, "reason", "高烧请假"))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    long leaveId = leave.get("id").asLong();
+
+    mvc.perform(get("/api/teacher/leave-requests").header("Authorization", "Bearer " + ownerToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.id == " + leaveId + ")].student_name").value(org.hamcrest.Matchers.hasItem("申报学生")))
+        .andExpect(jsonPath("$[?(@.id == " + leaveId + ")].course_name").value(org.hamcrest.Matchers.hasItem("申报课程-" + suffix)))
+        .andExpect(jsonPath("$[?(@.id == " + leaveId + ")].status").value(org.hamcrest.Matchers.hasItem("PENDING")));
+
+    mvc.perform(get("/api/teacher/leave-requests").header("Authorization", "Bearer " + otherToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.id == " + leaveId + ")]").isEmpty());
+
+    mvc.perform(
+            post("/api/teacher/leave-requests/" + leaveId + "/review")
+                .header("Authorization", "Bearer " + otherToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("approved", true))))
+        .andExpect(status().isForbidden());
+
+    mvc.perform(
+            post("/api/teacher/leave-requests/" + leaveId + "/review")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("approved", true))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status", is("APPROVED")));
+
+    Map<String, Object> record =
+        jdbc.queryForMap(
+            "SELECT status, source FROM attendance_records WHERE session_id = ? AND student_id = ?",
+            sessionId,
+            studentId);
+    org.junit.jupiter.api.Assertions.assertEquals("EXCUSED", record.get("status"));
+    org.junit.jupiter.api.Assertions.assertEquals("LEAVE", record.get("source"));
+
+    mvc.perform(
+            post("/api/teacher/leave-requests/" + leaveId + "/review")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("approved", false))))
+        .andExpect(status().isConflict());
+
+    mvc.perform(
+            get("/api/teacher/leave-requests")
+                .param("status", "APPROVED")
+                .header("Authorization", "Bearer " + ownerToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.id == " + leaveId + ")].status").value(org.hamcrest.Matchers.hasItem("APPROVED")));
+
+    // Admin route stays available for cross-cutting review.
+    mvc.perform(get("/api/admin/leave-requests").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void teacherDashboardEndpointIsRemoved() throws Exception {
+    String token = login("teacher1", "teacher123");
+    mvc.perform(get("/api/teacher/dashboard").header("Authorization", "Bearer " + token))
+        .andExpect(status().isNotFound());
+  }
+
   private String login(String username, String password) throws Exception {
     JsonNode node =
         mapper.readTree(

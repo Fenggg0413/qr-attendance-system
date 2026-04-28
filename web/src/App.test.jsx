@@ -48,8 +48,10 @@ test('login protects the portal until credentials are submitted', async () => {
   expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
-  await waitFor(() => expect(screen.getByRole('heading', { name: /教师，您好/ })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
   expect(screen.getByText(/张老师/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '仪表盘' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '申报审核' })).toBeInTheDocument();
   expect(global.fetch).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({ method: 'POST' }));
 });
 
@@ -76,7 +78,7 @@ test('teacher can filter courses and open detail tabs', async () => {
 
   const { container } = render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
-  await waitFor(() => expect(screen.getByRole('heading', { name: /教师，您好/ })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
@@ -121,7 +123,7 @@ test('teacher can start attendance and view record drawer', async () => {
 
   render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
-  await waitFor(() => expect(screen.getByRole('heading', { name: /教师，您好/ })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
@@ -164,6 +166,38 @@ test('profile form validates password confirmation and logout returns to login',
 
   await userEvent.click(screen.getByRole('button', { name: '退出登录' }));
   expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument();
+});
+
+test('teacher reviews student leave declarations from the new portal entry', async () => {
+  mockTeacherApi();
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '申报审核' })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '申报审核' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '申报审核' })).toBeInTheDocument());
+  expect(global.fetch).toHaveBeenCalledWith('/api/teacher/leave-requests?status=PENDING', expect.anything());
+
+  await waitFor(() => expect(screen.getByText('高烧请假')).toBeInTheDocument());
+  expect(screen.getByText('李同学')).toBeInTheDocument();
+  expect(screen.getByText('Java Web 开发')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: /通过 李同学 的申报/ }));
+
+  await waitFor(() => {
+    const reviewCall = global.fetch.mock.calls.find(([url, options]) =>
+      url === '/api/teacher/leave-requests/31/review' && options?.method === 'POST',
+    );
+    expect(reviewCall).toBeTruthy();
+    expect(JSON.parse(reviewCall[1].body)).toEqual({ approved: true });
+  });
+
+  await waitFor(() => expect(screen.queryByText('高烧请假')).not.toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('tab', { name: '已通过' }));
+  await waitFor(() => expect(screen.getByText('高烧请假')).toBeInTheDocument());
+  expect(document.querySelector('.statusBadge.approved')).not.toBeNull();
 });
 
 test('admin dashboard and simplified navigation render real overview data', async () => {
@@ -528,33 +562,55 @@ test('admin teacher management still supports editing basic data', async () => {
   expect(screen.getByText('张老师更新的密码已重置为 123456')).toBeInTheDocument();
 });
 
-function mockTeacherApi() {
+function mockTeacherApi(overrides = {}) {
+  const leaveRequests = overrides.leaveRequests ?? {
+    PENDING: [
+      {
+        id: 31,
+        session_id: 9,
+        student_id: 1,
+        reason: '高烧请假',
+        status: 'PENDING',
+        created_at: '2026-04-25T07:00:00Z',
+        reviewed_at: null,
+        student_name: '李同学',
+        student_no: '20230001',
+        course_id: 1,
+        course_name: 'Java Web 开发',
+        course_code: 'JAVA-WEB-01',
+        session_started_at: '2026-04-25T08:00:00Z',
+        session_ends_at: '2026-04-25T08:05:00Z',
+        reviewer_name: null,
+      },
+    ],
+    APPROVED: [],
+    REJECTED: [],
+    ALL: [],
+  };
   global.fetch = vi.fn(async (url, options = {}) => {
     const method = options.method ?? 'GET';
     if (url.endsWith('/auth/login')) {
       return response({ token: 'jwt', user: { id: 10, username: 'teacher1', role: 'TEACHER', displayName: '张老师' } });
     }
-    if (url.endsWith('/teacher/dashboard')) {
-      return response({
-        kpis: { courseTotal: 2, studentTotal: 3, todayPresent: 1, todayAbsent: 1, todayLate: 0, sessionTotal: 1 },
-        trend: [
-          { date: '2026-04-20', present: 1, absent: 0, late: 0 },
-          { date: '2026-04-21', present: 2, absent: 1, late: 0 },
-          { date: '2026-04-22', present: 1, absent: 0, late: 0 },
-          { date: '2026-04-23', present: 1, absent: 0, late: 0 },
-          { date: '2026-04-24', present: 2, absent: 0, late: 0 },
-          { date: '2026-04-25', present: 1, absent: 1, late: 0 },
-          { date: '2026-04-26', present: 1, absent: 1, late: 0 },
-        ],
-        distribution: { present: 9, absent: 3, late: 0, rate: 75 },
-        courseAttendance: [
-          { course_id: 1, course_name: 'Java Web 开发', total: 2, present: 5, absent: 2, late: 0 },
-          { course_id: 2, course_name: 'Data Structure', total: 1, present: 4, absent: 1, late: 0 },
-        ],
-        recentActivities: [
-          { id: 1, session_id: 9, student_name: '李同学', course_name: 'Java Web 开发', student_no: '20230001', checked_in_at: '2026-04-25T08:01:00Z', status: 'PRESENT' },
-        ],
-      });
+    if (url.includes('/teacher/leave-requests') && method === 'POST') {
+      const id = Number(url.match(/\/leave-requests\/(\d+)\/review/)?.[1]);
+      const approved = JSON.parse(options.body ?? '{}').approved === true;
+      const status = approved ? 'APPROVED' : 'REJECTED';
+      const target = leaveRequests.PENDING.find((row) => row.id === id);
+      if (target) {
+        leaveRequests.PENDING = leaveRequests.PENDING.filter((row) => row.id !== id);
+        const reviewed = { ...target, status, reviewer_name: '张老师', reviewed_at: '2026-04-25T08:30:00Z' };
+        leaveRequests[status] = [...(leaveRequests[status] ?? []), reviewed];
+      }
+      return response({ id, status, reviewed_at: '2026-04-25T08:30:00Z' });
+    }
+    if (url.includes('/teacher/leave-requests') && method === 'GET') {
+      const match = url.match(/status=([A-Z]+)/);
+      const filter = match ? match[1] : 'PENDING';
+      if (filter === 'ALL') {
+        return response([...leaveRequests.PENDING, ...leaveRequests.APPROVED, ...leaveRequests.REJECTED]);
+      }
+      return response(leaveRequests[filter] ?? []);
     }
     if (url.endsWith('/teacher/courses') && method === 'GET') return response(courses);
     if (url.endsWith('/teacher/courses/1') && method === 'GET') return response(courses[0]);

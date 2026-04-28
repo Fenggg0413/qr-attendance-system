@@ -4,10 +4,6 @@ import com.example.qrattendance.auth.AuthContext;
 import com.example.qrattendance.auth.PasswordHasher;
 import com.example.qrattendance.qr.QrTokenService;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -20,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -34,98 +31,6 @@ public class TeacherController {
   public TeacherController(JdbcTemplate jdbc, QrTokenService qrTokenService) {
     this.jdbc = jdbc;
     this.qrTokenService = qrTokenService;
-  }
-
-  @GetMapping("/dashboard")
-  public Map<String, Object> dashboard() {
-    long teacherId = teacherId();
-
-    List<Map<String, Object>> courseAttendance =
-        jdbc.queryForList(
-            """
-            SELECT co.id course_id,
-                   co.name course_name,
-                   COUNT(DISTINCT ce.student_id) total,
-                   SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) present,
-                   SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END) late,
-                   COUNT(DISTINCT ce.student_id) - SUM(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 ELSE 0 END) absent
-            FROM courses co
-            JOIN course_assignments ca ON ca.course_id = co.id AND ca.teacher_id = ?
-            LEFT JOIN course_enrollments ce ON ce.assignment_id = ca.id
-            LEFT JOIN attendance_sessions se ON se.course_id = co.id AND se.teacher_id = ca.teacher_id
-            LEFT JOIN attendance_records ar ON ar.session_id = se.id AND ar.student_id = ce.student_id
-            GROUP BY co.id, co.name
-            ORDER BY co.id
-            """,
-            teacherId);
-
-    List<Map<String, Object>> activities =
-        jdbc.queryForList(
-            """
-            SELECT ar.id,
-                   ar.session_id,
-                   co.name course_name,
-                   s.name student_name,
-                   s.student_no,
-                   ar.status,
-                   COALESCE(ar.checked_in_at, se.started_at) checked_in_at
-            FROM attendance_records ar
-            JOIN students s ON s.id = ar.student_id
-            JOIN attendance_sessions se ON se.id = ar.session_id
-            JOIN courses co ON co.id = se.course_id
-            WHERE se.teacher_id = ?
-            ORDER BY COALESCE(ar.checked_in_at, se.started_at) DESC, ar.id DESC
-            LIMIT 8
-            """,
-            teacherId);
-
-    String today = LocalDate.now(ZoneId.systemDefault()).toString();
-    Map<String, Object> todayCounts =
-        firstOrZero(
-            """
-            SELECT SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) present,
-                   SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END) late,
-                   SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END) absent
-            FROM attendance_records ar
-            JOIN attendance_sessions se ON se.id = ar.session_id
-            WHERE se.teacher_id = ?
-              AND substr(COALESCE(ar.checked_in_at, ''), 1, 10) = ?
-            """,
-            teacherId,
-            today);
-
-    Map<String, Object> distribution =
-        firstOrZero(
-            """
-            SELECT SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) present,
-                   SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END) late,
-                   SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END) absent
-            FROM attendance_records ar
-            JOIN attendance_sessions se ON se.id = ar.session_id
-            WHERE se.teacher_id = ?
-            """,
-            teacherId);
-
-    long present = number(distribution.get("present")).longValue();
-    long late = number(distribution.get("late")).longValue();
-    long absent = number(distribution.get("absent")).longValue();
-    long total = present + late + absent;
-    Map<String, Object> distributionWithRate = new LinkedHashMap<>(distribution);
-    distributionWithRate.put("rate", total == 0 ? 0 : Math.round(((present + late) * 100.0) / total));
-
-    return Map.of(
-        "kpis",
-            Map.of(
-                "courseTotal", jdbc.queryForObject("SELECT COUNT(*) FROM course_assignments WHERE teacher_id = ?", Long.class, teacherId),
-                "studentTotal", jdbc.queryForObject("SELECT COUNT(DISTINCT ce.student_id) FROM course_assignments ca JOIN course_enrollments ce ON ce.assignment_id = ca.id WHERE ca.teacher_id = ?", Long.class, teacherId),
-                "todayPresent", number(todayCounts.get("present")).longValue(),
-                "todayAbsent", number(todayCounts.get("absent")).longValue(),
-                "todayLate", number(todayCounts.get("late")).longValue(),
-                "sessionTotal", jdbc.queryForObject("SELECT COUNT(*) FROM attendance_sessions WHERE teacher_id = ?", Long.class, teacherId)),
-        "trend", teacherSevenDayTrend(teacherId),
-        "distribution", distributionWithRate,
-        "courseAttendance", courseAttendance,
-        "recentActivities", activities);
   }
 
   @GetMapping("/courses")
@@ -278,6 +183,102 @@ public class TeacherController {
     jdbc.update("DELETE FROM attendance_records WHERE session_id = ?", id);
     jdbc.update("DELETE FROM leave_requests WHERE session_id = ?", id);
     jdbc.update("DELETE FROM attendance_sessions WHERE id = ? AND teacher_id = ?", id, teacherId);
+  }
+
+  @GetMapping("/leave-requests")
+  public List<Map<String, Object>> leaveRequests(@RequestParam(value = "status", required = false) String status) {
+    long teacherId = teacherId();
+    String normalized = status == null ? "PENDING" : status.trim().toUpperCase(Locale.ROOT);
+    List<String> allowed = List.of("PENDING", "APPROVED", "REJECTED", "ALL");
+    if (!allowed.contains(normalized)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不支持的状态过滤");
+    }
+    String baseSql =
+        """
+        SELECT lr.id,
+               lr.session_id,
+               lr.student_id,
+               lr.reason,
+               lr.status,
+               lr.created_at,
+               lr.reviewed_at,
+               s.name student_name,
+               s.student_no,
+               co.id course_id,
+               co.name course_name,
+               co.code course_code,
+               se.started_at session_started_at,
+               se.ends_at session_ends_at,
+               COALESCE(u.display_name, u.username) reviewer_name
+          FROM leave_requests lr
+          JOIN students s ON s.id = lr.student_id
+          JOIN attendance_sessions se ON se.id = lr.session_id
+          JOIN courses co ON co.id = se.course_id
+          LEFT JOIN users u ON u.id = lr.reviewer_id
+         WHERE se.teacher_id = ?
+        """;
+    if ("ALL".equals(normalized)) {
+      return jdbc.queryForList(
+          baseSql + " ORDER BY (lr.status = 'PENDING') DESC, lr.id DESC", teacherId);
+    }
+    return jdbc.queryForList(
+        baseSql + " AND lr.status = ? ORDER BY lr.id DESC", teacherId, normalized);
+  }
+
+  @PostMapping("/leave-requests/{id}/review")
+  public Map<String, Object> reviewLeaveRequest(
+      @PathVariable long id, @RequestBody Map<String, Object> body) {
+    var user = AuthContext.requireRole("TEACHER");
+    long teacherId = teacherId();
+    Map<String, Object> request =
+        jdbc.queryForList(
+                """
+                SELECT lr.id, lr.session_id, lr.student_id, lr.status, se.teacher_id
+                  FROM leave_requests lr
+                  JOIN attendance_sessions se ON se.id = lr.session_id
+                 WHERE lr.id = ?
+                """,
+                id)
+            .stream()
+            .findFirst()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "申报不存在"));
+    long sessionTeacherId = ((Number) request.get("teacher_id")).longValue();
+    if (sessionTeacherId != teacherId) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "无权审核该申报");
+    }
+    if (!"PENDING".equals(request.get("status"))) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "申报已审核，无法重复操作");
+    }
+    boolean approved = Boolean.parseBoolean(String.valueOf(body.getOrDefault("approved", false)));
+    String newStatus = approved ? "APPROVED" : "REJECTED";
+    String now = Instant.now().toString();
+    jdbc.update(
+        "UPDATE leave_requests SET status = ?, reviewer_id = ?, reviewed_at = ? WHERE id = ?",
+        newStatus,
+        user.id(),
+        now,
+        id);
+    if (approved) {
+      long sessionId = ((Number) request.get("session_id")).longValue();
+      long studentId = ((Number) request.get("student_id")).longValue();
+      int updated =
+          jdbc.update(
+              "UPDATE attendance_records SET status = ?, source = ? WHERE session_id = ? AND student_id = ?",
+              "EXCUSED",
+              "LEAVE",
+              sessionId,
+              studentId);
+      if (updated == 0) {
+        jdbc.update(
+            "INSERT INTO attendance_records(session_id, student_id, status, checked_in_at, source) VALUES (?, ?, ?, ?, ?)",
+            sessionId,
+            studentId,
+            "EXCUSED",
+            now,
+            "LEAVE");
+      }
+    }
+    return Map.of("id", id, "status", newStatus, "reviewed_at", now);
   }
 
   @GetMapping("/courses/{courseId}/students")
@@ -451,42 +452,5 @@ public class TeacherController {
 
   private String blankToNull(String value) {
     return value == null || value.isBlank() ? null : value;
-  }
-
-  private Map<String, Object> firstOrZero(String sql, Object... args) {
-    return jdbc.queryForList(sql, args).stream().findFirst().orElse(Map.of());
-  }
-
-  private List<Map<String, Object>> teacherSevenDayTrend(long teacherId) {
-    LocalDate today = LocalDate.now(ZoneId.systemDefault());
-    List<Map<String, Object>> rows =
-        jdbc.queryForList(
-            """
-            SELECT substr(COALESCE(ar.checked_in_at, se.started_at), 1, 10) day,
-                   SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) present,
-                   SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END) late,
-                   SUM(CASE WHEN ar.status = 'ABSENT' THEN 1 ELSE 0 END) absent
-            FROM attendance_records ar
-            JOIN attendance_sessions se ON se.id = ar.session_id
-            WHERE se.teacher_id = ?
-              AND substr(COALESCE(ar.checked_in_at, se.started_at), 1, 10) >= ?
-            GROUP BY day
-            """,
-            teacherId,
-            today.minusDays(6).toString());
-    Map<String, Map<String, Object>> byDay = new LinkedHashMap<>();
-    for (int index = 6; index >= 0; index--) {
-      String day = today.minusDays(index).toString();
-      byDay.put(day, new LinkedHashMap<>(Map.of("date", day, "present", 0L, "absent", 0L, "late", 0L)));
-    }
-    for (Map<String, Object> row : rows) {
-      Map<String, Object> target = byDay.get(String.valueOf(row.get("day")));
-      if (target != null) {
-        target.put("present", number(row.get("present")).longValue());
-        target.put("absent", number(row.get("absent")).longValue());
-        target.put("late", number(row.get("late")).longValue());
-      }
-    }
-    return new ArrayList<>(byDay.values());
   }
 }
