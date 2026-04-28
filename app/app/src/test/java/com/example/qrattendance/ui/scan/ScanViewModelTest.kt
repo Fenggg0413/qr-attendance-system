@@ -18,7 +18,7 @@ class ScanViewModelTest {
 
     viewModel.submitPayload("bad")
 
-    assertEquals("二维码内容无效", viewModel.uiState.value.error)
+    assertEquals("无效的二维码", viewModel.uiState.value.error)
   }
 
   @Test
@@ -30,6 +30,7 @@ class ScanViewModelTest {
 
     assertEquals(42L, repository.request?.sessionId)
     assertEquals("签到成功", viewModel.uiState.value.message)
+    assertEquals("", viewModel.uiState.value.manualPayload)
   }
 }
 

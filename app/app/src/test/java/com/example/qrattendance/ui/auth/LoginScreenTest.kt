@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.example.qrattendance.theme.MyApplicationTheme
 import junit.framework.TestCase.assertTrue
 import org.junit.Rule
@@ -23,6 +24,9 @@ class LoginScreenTest {
     compose.setContent { MyApplicationTheme { LoginScreen(LoginUiState(), {}, {}, { clicked = true }) } }
 
     compose.onNodeWithText("学生考勤").assertIsDisplayed()
+    compose.onNodeWithText("请输入账号").assertIsDisplayed()
+    compose.onNodeWithText("请输入密码").assertIsDisplayed()
+    compose.onNodeWithText("如忘记账号请联系教务").performScrollTo().assertIsDisplayed()
     compose.onNodeWithText("登录").performClick()
 
     assertTrue(clicked)
@@ -32,6 +36,6 @@ class LoginScreenTest {
   fun errorState_showsMessage() {
     compose.setContent { MyApplicationTheme { LoginScreen(LoginUiState(error = "登录失败"), {}, {}, {}) } }
 
-    compose.onNodeWithText("登录失败").assertIsDisplayed()
+    compose.onNodeWithText("登录失败").performScrollTo().assertIsDisplayed()
   }
 }

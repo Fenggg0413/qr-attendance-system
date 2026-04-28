@@ -6,12 +6,21 @@ import com.example.qrattendance.data.UserProfile
 import com.example.qrattendance.data.repository.AuthRepository
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
+import junit.framework.TestCase.assertNotNull
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
 
 class LoginViewModelTest {
   @get:Rule val mainDispatcherRule = MainDispatcherRule()
+
+  @Test
+  fun initialState_hasEmptyCredentials() {
+    val viewModel = LoginViewModel(FakeAuthRepository(), mainDispatcherRule.dispatcher)
+
+    assertEquals("", viewModel.uiState.value.username)
+    assertEquals("", viewModel.uiState.value.password)
+  }
 
   @Test
   fun login_successClearsLoading() = runTest {
@@ -33,6 +42,7 @@ class LoginViewModelTest {
 
     viewModel.login()
 
+    assertNotNull(viewModel.uiState.value.error)
     assertEquals("bad credentials", viewModel.uiState.value.error)
   }
 }

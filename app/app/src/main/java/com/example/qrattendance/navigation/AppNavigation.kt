@@ -1,8 +1,13 @@
 package com.example.qrattendance.navigation
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -14,12 +19,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.EventNote
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,6 +46,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -81,17 +100,40 @@ fun AppNavigation(container: AppContainer, modifier: Modifier = Modifier) {
 @Composable
 private fun HomeShellScreen(container: AppContainer, onScan: () -> Unit, onLeave: (Long, String) -> Unit, modifier: Modifier = Modifier) {
   var tab by remember { mutableStateOf(HomeTab.Home) }
+  val transition = rememberInfiniteTransition(label = "fab_breath")
+  val fabScale by transition.animateFloat(1f, 1.04f, infiniteRepeatable(tween(2000), RepeatMode.Reverse), label = "fab_scale")
   Scaffold(
     modifier = modifier.fillMaxSize(),
     floatingActionButton = {
-      LargeFloatingActionButton(onClick = onScan, shape = CircleShape, containerColor = MaterialTheme.colorScheme.primary, modifier = Modifier.size(96.dp).offset(y = 24.dp)) {
-        Text("扫", color = MaterialTheme.colorScheme.onPrimary)
+      LargeFloatingActionButton(
+        onClick = onScan,
+        shape = CircleShape,
+        containerColor = Color.Transparent,
+        modifier =
+          Modifier
+            .size(96.dp)
+            .offset(y = 24.dp)
+            .scale(fabScale)
+            .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, Color(0xFFA3E635))), CircleShape),
+      ) {
+        Icon(Icons.Outlined.QrCodeScanner, contentDescription = "扫码签到", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(36.dp))
       }
     },
     bottomBar = {
-      NavigationBar(Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(MaterialTheme.colorScheme.surfaceContainer)) {
+      NavigationBar(
+        modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(MaterialTheme.colorScheme.surfaceContainer),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 4.dp,
+      ) {
         HomeTab.entries.forEach { item ->
-          NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Text(item.label.take(1)) }, label = { Text(item.label) })
+          val selected = tab == item
+          NavigationBarItem(
+            selected = selected,
+            onClick = { tab = item },
+            icon = { Icon(item.icon(selected), contentDescription = item.label) },
+            label = { androidx.compose.material3.Text(item.label) },
+            colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+          )
         }
       }
     },
@@ -139,3 +181,11 @@ private fun HomeShellScreen(container: AppContainer, onScan: () -> Unit, onLeave
     }
   }
 }
+
+private fun HomeTab.icon(selected: Boolean) =
+  when (this) {
+    HomeTab.Home -> if (selected) Icons.Filled.Home else Icons.Outlined.Home
+    HomeTab.Sessions -> if (selected) Icons.Filled.Schedule else Icons.Outlined.Schedule
+    HomeTab.Records -> if (selected) Icons.Filled.EventNote else Icons.Outlined.EventNote
+    HomeTab.Profile -> if (selected) Icons.Filled.Person else Icons.Outlined.Person
+  }

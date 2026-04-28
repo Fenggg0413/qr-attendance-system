@@ -38,7 +38,7 @@ class ScanViewModel(
     if (payload == lastPayload && now - lastAcceptedAt < 500) return
     val request =
       QrPayloadParser.parse(payload) ?: run {
-        _uiState.update { it.copy(error = "二维码内容无效", message = null) }
+        _uiState.update { it.copy(error = "无效的二维码", message = null) }
         return
       }
     lastPayload = payload
@@ -47,7 +47,7 @@ class ScanViewModel(
       _uiState.update { it.copy(loading = true, error = null, message = null) }
       runCatching { repository.checkIn(request) }
         .onSuccess { response ->
-          _uiState.update { it.copy(success = response, message = if (response.duplicate) "已签到" else "签到成功") }
+          _uiState.update { it.copy(success = response, message = if (response.duplicate) "已签到" else "签到成功", manualPayload = "") }
         }
         .onFailure { error -> _uiState.update { it.copy(error = error.message ?: "签到失败") } }
       _uiState.update { it.copy(loading = false) }

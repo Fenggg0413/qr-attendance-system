@@ -24,6 +24,20 @@ class AttendanceApiClientTest {
   }
 
   @Test
+  fun login_decodesLoginResponse() = runTest {
+    server.enqueue(MockResponse().setResponseCode(200).setBody("""{"token":"jwt-token","user":{"id":5,"username":"student1","role":"STUDENT","displayName":"李同学"}}"""))
+    val client = AttendanceApiClient(baseUrl = server.url("/api").toString().trimEnd('/'))
+
+    val response = client.login("student1", "student123")
+
+    val request = server.takeRequest()
+    assertEquals("/api/auth/login", request.path)
+    assertTrue(request.body.readUtf8().contains("student1"))
+    assertEquals("jwt-token", response.token)
+    assertEquals("李同学", response.user.displayName)
+  }
+
+  @Test
   fun courses_sendsBearerAndDecodesResponse() = runTest {
     server.enqueue(MockResponse().setResponseCode(200).setBody("""[{"id":7,"name":"移动开发","code":"MOB","teacherName":"张老师","term":"2026 春"}]"""))
     val client = AttendanceApiClient(baseUrl = server.url("/api").toString().trimEnd('/'))
@@ -62,6 +76,22 @@ class AttendanceApiClientTest {
     } catch (error: ApiException) {
       assertEquals(403, error.status)
       assertEquals("Forbidden", error.apiMessage)
+    }
+  }
+
+  @Test
+  fun unauthorized_throwsApiExceptionAndInvokesCallback() = runTest {
+    server.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":"Unauthorized"}"""))
+    var unauthorized = false
+    val client = AttendanceApiClient(baseUrl = server.url("/api").toString().trimEnd('/'), onUnauthorized = { unauthorized = true })
+
+    try {
+      client.records("token-123")
+      throw AssertionError("Expected ApiException")
+    } catch (error: ApiException) {
+      assertEquals(401, error.status)
+      assertEquals("Unauthorized", error.apiMessage)
+      assertTrue(unauthorized)
     }
   }
 }
