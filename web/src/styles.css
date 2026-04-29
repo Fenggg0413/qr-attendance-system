@@ -910,11 +910,26 @@ th {
 }
 
 .dashboardCharts,
-.dashboardLower,
 .courseDetailGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
   gap: 18px;
+}
+
+.dashboardLower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.dashboardLower > .panel {
+  grid-template-rows: auto 1fr;
+}
+
+.dashboardLower > .panel > .courseAttendanceRows,
+.dashboardLower > .panel > .activityList {
+  overflow-y: auto;
 }
 
 .adminTrendChart {
@@ -1016,10 +1031,16 @@ th {
   border-radius: 50%;
 }
 
-.courseAttendanceRows,
+.courseAttendanceRows {
+  display: grid;
+  gap: 12px;
+  overflow-y: auto;
+}
+
 .activityList {
   display: grid;
   gap: 12px;
+  overflow-y: auto;
 }
 
 .courseAttendanceRow {
@@ -1054,6 +1075,18 @@ th {
   background: #16a34a;
 }
 
+.showMoreToggle {
+  min-height: auto;
+  padding: 0;
+  color: #176b5b;
+  font-size: 13px;
+  background: transparent;
+}
+
+.showMoreToggle:hover {
+  text-decoration: underline;
+}
+
 .plainLink {
   min-height: auto;
   padding: 0;
@@ -1063,7 +1096,7 @@ th {
 
 .activityItem {
   display: grid;
-  grid-template-columns: 34px minmax(80px, 1fr) minmax(90px, 1fr) minmax(150px, 1fr) auto;
+  grid-template-columns: 34px minmax(80px, 1fr) minmax(80px, 1fr) minmax(100px, 1fr) min-content;
   gap: 10px;
   align-items: center;
   color: #475569;
@@ -1658,6 +1691,34 @@ th {
 
 .adminTable th {
   background: #f4f8f6;
+}
+
+.adminTable th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.adminTable th.sortable:hover {
+  background: #e8f0ec;
+}
+
+.adminTable th .thContent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.adminTable th .sortIcon {
+  display: inline-block;
+  font-size: 11px;
+  color: #b0c4b8;
+  margin-left: 2px;
+  transition: color 0.15s;
+}
+
+.adminTable th .sortIcon.active {
+  color: #176b5b;
 }
 
 .adminTable tbody tr:hover {

@@ -78,7 +78,7 @@ const adminResources = {
 };
 
 const adminNav = [
-  ['dashboard', '仪表盘', BarChart3],
+  ['dashboard', '数据总览', BarChart3],
   ['students', '学生管理', UserRound],
   ['teachers', '教师管理', UsersRound],
   ['classrooms', '教室管理', Building2],
@@ -1580,7 +1580,7 @@ function TeacherLeaveRequests({ client, onAuthExpired }) {
 function AdminPortal({ session, view, setBreadcrumb, logout }) {
   const client = useMemo(() => api.withToken(session.token), [session.token]);
   const config = adminResources[view];
-  const title = view === 'dashboard' ? '仪表盘' : view === 'courses' ? '课程管理' : view === 'departments' ? '院系管理' : config?.title ?? '后台管理';
+  const title = view === 'dashboard' ? '数据总览' : view === 'courses' ? '课程管理' : view === 'departments' ? '院系管理' : config?.title ?? '后台管理';
 
   useEffect(() => {
     setBreadcrumb(['首页', title]);
@@ -1610,7 +1610,7 @@ function AdminDashboard({ client, session, onAuthExpired }) {
           onAuthExpired();
           return;
         }
-        if (!cancelled) setError(err.message ?? '仪表盘加载失败');
+        if (!cancelled) setError(err.message ?? '数据总览加载失败');
       });
     return () => {
       cancelled = true;
@@ -1717,11 +1717,20 @@ function DonutSummary({ distribution }) {
 }
 
 function CourseAttendanceTable({ rows }) {
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? rows : rows.slice(0, 10);
   return (
     <section className="panel">
-      <div className="panelHead"><h2>课程出勤情况</h2></div>
+      <div className="panelHead">
+        <h2>课程出勤情况</h2>
+        {rows.length > 10 && (
+          <button className="plainLink showMoreToggle" type="button" onClick={() => setShowAll(!showAll)}>
+            {showAll ? '收起' : `查看全部 ${rows.length} 门课程`}
+          </button>
+        )}
+      </div>
       <div className="courseAttendanceRows">
-        {rows.map((row) => {
+        {displayed.map((row) => {
           const total = Number(row.total ?? 0);
           const attended = Number(row.present ?? 0) + Number(row.late ?? 0);
           const rate = total ? Math.round((attended / total) * 100) : 0;
@@ -1741,14 +1750,20 @@ function CourseAttendanceTable({ rows }) {
 }
 
 function RecentActivities({ rows }) {
+  const [showAll, setShowAll] = useState(false);
+  const displayed = showAll ? rows : rows.slice(0, 7);
   return (
     <section className="panel">
       <div className="panelHead">
         <h2>最近活动记录</h2>
-        <button className="plainLink">查看全部 →</button>
+        {rows.length > 7 && (
+          <button className="plainLink showMoreToggle" type="button" onClick={() => setShowAll(!showAll)}>
+            {showAll ? '收起' : `查看全部 ${rows.length} 条记录`}
+          </button>
+        )}
       </div>
       <div className="activityList">
-        {rows.map((row) => (
+        {displayed.map((row) => (
           <div className="activityItem" key={row.id ?? `${row.student_name}-${row.checked_in_at}`}>
             <span className="avatarMini">{String(row.student_name ?? '学').slice(0, 1)}</span>
             <strong>{row.student_name}</strong>
@@ -1776,11 +1791,14 @@ function AdminCoursesPage({ client }) {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [courseSortColumn, setCourseSortColumn] = useState(null);
+  const [courseSortDirection, setCourseSortDirection] = useState(null);
 
   const termOptions = useMemo(() => ['全部学期', ...Array.from(new Set(courses.map((course) => course.term).filter(Boolean)))], [courses]);
   const filteredCourses = useMemo(() => filterAdminCourses(courses, appliedFilters), [appliedFilters, courses]);
-  const totalPages = Math.max(1, Math.ceil(filteredCourses.length / pageSize));
-  const pageCourses = filteredCourses.slice((page - 1) * pageSize, page * pageSize);
+  const sortedCourses = useMemo(() => sortRows(filteredCourses, courseSortColumn, courseSortDirection), [filteredCourses, courseSortColumn, courseSortDirection]);
+  const totalPages = Math.max(1, Math.ceil(sortedCourses.length / pageSize));
+  const pageCourses = sortedCourses.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
     load();
@@ -1847,6 +1865,12 @@ function AdminCoursesPage({ client }) {
     setDialogOpen(true);
   }
 
+  function handleCourseSort(column) {
+    const next = handleColumnSort(column, courseSortColumn, courseSortDirection);
+    setCourseSortColumn(next.sortColumn);
+    setCourseSortDirection(next.sortDirection);
+  }
+
   if (selected && detail) {
     return (
       <AdminCourseDetail
@@ -1882,12 +1906,12 @@ function AdminCoursesPage({ client }) {
             <thead>
               <tr>
                 <th>序号</th>
-                <th>课程名称</th>
-                <th>课程代码</th>
-                <th>院系</th>
-                <th>授课教师</th>
-                <th>学期</th>
-                <th>选课人数</th>
+                <th className="sortable" onClick={() => handleCourseSort('name')}><span className="thContent">课程名称<span className={`sortIcon ${courseSortColumn === 'name' ? 'active' : ''}`}>{courseSortColumn === 'name' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <th className="sortable" onClick={() => handleCourseSort('code')}><span className="thContent">课程代码<span className={`sortIcon ${courseSortColumn === 'code' ? 'active' : ''}`}>{courseSortColumn === 'code' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <th className="sortable" onClick={() => handleCourseSort('department_name')}><span className="thContent">院系<span className={`sortIcon ${courseSortColumn === 'department_name' ? 'active' : ''}`}>{courseSortColumn === 'department_name' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <th className="sortable" onClick={() => handleCourseSort('teacher_name')}><span className="thContent">授课教师<span className={`sortIcon ${courseSortColumn === 'teacher_name' ? 'active' : ''}`}>{courseSortColumn === 'teacher_name' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <th className="sortable" onClick={() => handleCourseSort('term')}><span className="thContent">学期<span className={`sortIcon ${courseSortColumn === 'term' ? 'active' : ''}`}>{courseSortColumn === 'term' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <th className="sortable" onClick={() => handleCourseSort('student_count')}><span className="thContent">选课人数<span className={`sortIcon ${courseSortColumn === 'student_count' ? 'active' : ''}`}>{courseSortColumn === 'student_count' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
                 <th></th>
               </tr>
             </thead>
@@ -1912,7 +1936,7 @@ function AdminCoursesPage({ client }) {
           </table>
         </div>
         <AdminPagination
-          total={filteredCourses.length}
+          total={sortedCourses.length}
           page={page}
           totalPages={totalPages}
           pageSize={pageSize}
@@ -2589,6 +2613,8 @@ function AdminResourcePage({ client, config }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [sortColumn, setSortColumn] = useState(null);
+  const [sortDirection, setSortDirection] = useState(null);
 
   const grades = ['全部年级', ...Array.from(new Set(items.map((item) => item.grade).filter(Boolean)))];
   const classroomBuildings = ['教一', '教二', '教三', '教四'];
@@ -2617,24 +2643,25 @@ function AdminResourcePage({ client, config }) {
       return inDepartment;
     });
   }, [departmentFilter, isStudentResource, isTeacherResource, isClassroomResource, items, query, studentAppliedFilters, teacherAppliedFilters, classroomAppliedFilters]);
-  const studentTotalPages = Math.max(1, Math.ceil(filteredItems.length / studentPageSize));
-  const teacherTotalPages = Math.max(1, Math.ceil(filteredItems.length / teacherPageSize));
-  const classroomTotalPages = Math.max(1, Math.ceil(filteredItems.length / classroomPageSize));
+  const sortedItems = useMemo(() => sortRows(filteredItems, sortColumn, sortDirection), [filteredItems, sortColumn, sortDirection]);
+  const studentTotalPages = Math.max(1, Math.ceil(sortedItems.length / studentPageSize));
+  const teacherTotalPages = Math.max(1, Math.ceil(sortedItems.length / teacherPageSize));
+  const classroomTotalPages = Math.max(1, Math.ceil(sortedItems.length / classroomPageSize));
   const studentRows = isStudentResource
-    ? filteredItems.slice((studentPage - 1) * studentPageSize, studentPage * studentPageSize)
-    : filteredItems;
+    ? sortedItems.slice((studentPage - 1) * studentPageSize, studentPage * studentPageSize)
+    : sortedItems;
   const displayedStudentRows = isStudentResource
     ? studentRows.map((row, index) => ({ ...row, display_index: (studentPage - 1) * studentPageSize + index + 1 }))
     : studentRows;
   const teacherRows = isTeacherResource
-    ? filteredItems.slice((teacherPage - 1) * teacherPageSize, teacherPage * teacherPageSize)
-    : filteredItems;
+    ? sortedItems.slice((teacherPage - 1) * teacherPageSize, teacherPage * teacherPageSize)
+    : sortedItems;
   const displayedTeacherRows = isTeacherResource
     ? teacherRows.map((row, index) => ({ ...row, display_index: (teacherPage - 1) * teacherPageSize + index + 1 }))
     : teacherRows;
   const classroomRows = isClassroomResource
-    ? filteredItems.slice((classroomPage - 1) * classroomPageSize, classroomPage * classroomPageSize)
-    : filteredItems;
+    ? sortedItems.slice((classroomPage - 1) * classroomPageSize, classroomPage * classroomPageSize)
+    : sortedItems;
   const displayedClassroomRows = isClassroomResource
     ? classroomRows.map((row, index) => ({ ...row, display_index: (classroomPage - 1) * classroomPageSize + index + 1 }))
     : classroomRows;
@@ -2657,10 +2684,18 @@ function AdminResourcePage({ client, config }) {
     setClassroomPage(1);
     setClassroomDraftFilters({ query: '', building: '全部教学楼' });
     setClassroomAppliedFilters({ query: '', building: '全部教学楼' });
+    setSortColumn(null);
+    setSortDirection(null);
     setMessage('');
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, config]);
+
+  function onSort(column) {
+    const next = handleColumnSort(column, sortColumn, sortDirection);
+    setSortColumn(next.sortColumn);
+    setSortDirection(next.sortDirection);
+  }
 
   useEffect(() => {
     setStudentPage((current) => Math.min(current, studentTotalPages));
@@ -2837,6 +2872,9 @@ function AdminResourcePage({ client, config }) {
           onEdit={config.noEdit ? null : edit}
           onDelete={remove}
           onResetPassword={resetPassword}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={onSort}
           header={(
             <StudentTableHeader
               filters={studentDraftFilters}
@@ -2893,6 +2931,9 @@ function AdminResourcePage({ client, config }) {
           onEdit={config.noEdit ? null : edit}
           onDelete={remove}
           onResetPassword={resetPassword}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={onSort}
           header={(
             <TeacherTableHeader
               filters={teacherDraftFilters}
@@ -2947,6 +2988,9 @@ function AdminResourcePage({ client, config }) {
           resourceTitle={config.title.replace(/管理$/, '')}
           onEdit={config.noEdit ? null : edit}
           onDelete={remove}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={onSort}
           header={(
             <ClassroomTableHeader
               filters={classroomDraftFilters}
@@ -3025,13 +3069,16 @@ function AdminResourcePage({ client, config }) {
         onGradeFilter={setGradeFilter}
       />
       <AdminDataTable
-        rows={filteredItems.map((row, index) => ({ ...row, display_index: index + 1 }))}
+        rows={sortedItems.map((row, index) => ({ ...row, display_index: index + 1 }))}
         columns={config.columns}
         labels={config.labels}
         loading={loading}
         resourceTitle={config.title.replace(/管理$/, '')}
         onEdit={config.noEdit ? null : edit}
         onDelete={remove}
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={onSort}
       />
     </div>
   );
@@ -3322,6 +3369,8 @@ function AdminDepartmentsPage({ client }) {
   const [appliedFilters, setAppliedFilters] = useState({ query: '' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [deptSortColumn, setDeptSortColumn] = useState(null);
+  const [deptSortDirection, setDeptSortDirection] = useState(null);
 
   const filteredDepartments = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();
@@ -3331,8 +3380,10 @@ function AdminDepartmentsPage({ client }) {
     );
   }, [departments, appliedFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredDepartments.length / pageSize));
-  const pageDepartments = filteredDepartments.slice((page - 1) * pageSize, page * pageSize);
+  const sortedDepartments = useMemo(() => sortRows(filteredDepartments, deptSortColumn, deptSortDirection), [filteredDepartments, deptSortColumn, deptSortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedDepartments.length / pageSize));
+  const pageDepartments = sortedDepartments.slice((page - 1) * pageSize, page * pageSize);
   const displayedRows = pageDepartments.map((row, index) => ({
     ...row,
     display_index: (page - 1) * pageSize + index + 1,
@@ -3422,6 +3473,12 @@ function AdminDepartmentsPage({ client }) {
     setPage(1);
   }
 
+  function handleDeptSort(column) {
+    const next = handleColumnSort(column, deptSortColumn, deptSortDirection);
+    setDeptSortColumn(next.sortColumn);
+    setDeptSortDirection(next.sortDirection);
+  }
+
   return (
     <div className="adminPage">
       <AdminPageHead title="院系管理" subtitle="维护院系基础数据，可新增、编辑或删除院系。" onRefresh={load} />
@@ -3456,7 +3513,7 @@ function AdminDepartmentsPage({ client }) {
             <thead>
               <tr>
                 <th>序号</th>
-                <th>院系名称</th>
+                <th className="sortable" onClick={() => handleDeptSort('name')}><span className="thContent">院系名称<span className={`sortIcon ${deptSortColumn === 'name' ? 'active' : ''}`}>{deptSortColumn === 'name' ? (deptSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -3483,7 +3540,7 @@ function AdminDepartmentsPage({ client }) {
           </table>
         </div>
         <AdminPagination
-          total={filteredDepartments.length}
+          total={sortedDepartments.length}
           page={page}
           totalPages={totalPages}
           pageSize={pageSize}
@@ -3576,7 +3633,7 @@ function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter,
   );
 }
 
-function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null }) {
+function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null, sortColumn, sortDirection, onSort }) {
   const hasActions = Boolean(onEdit || onDelete || onResetPassword);
   return (
     <div className="panel adminTablePanel">
@@ -3585,7 +3642,27 @@ function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '
         <table className="adminTable">
           <thead>
             <tr>
-              {columns.map((column) => <th key={column}>{labels[column] ?? adminLabels[column] ?? column}</th>)}
+              {columns.map((column) => {
+                const canSort = column !== 'display_index' && onSort;
+                const isSorted = sortColumn === column;
+                const label = labels[column] ?? adminLabels[column] ?? column;
+                return (
+                  <th
+                    key={column}
+                    className={canSort ? 'sortable' : undefined}
+                    onClick={canSort ? () => onSort(column) : undefined}
+                  >
+                    <span className="thContent">
+                      {label}
+                      {canSort && (
+                        <span className={`sortIcon ${isSorted ? 'active' : ''}`}>
+                          {isSorted ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                        </span>
+                      )}
+                    </span>
+                  </th>
+                );
+              })}
               {hasActions && <th>操作</th>}
             </tr>
           </thead>
@@ -3671,6 +3748,29 @@ function filterAdminCourses(courses, filters) {
     const matchesTerm = filters.term === '全部学期' || course.term === filters.term;
     return matchesQuery && matchesDepartment && matchesTerm;
   });
+}
+
+function sortRows(rows, column, direction) {
+  if (!column || !direction) return rows;
+  return [...rows].sort((a, b) => {
+    const aVal = a[column] ?? '';
+    const bVal = b[column] ?? '';
+    const aNum = Number(aVal);
+    const bNum = Number(bVal);
+    if (!isNaN(aNum) && !isNaN(bNum) && aVal !== '' && bVal !== '') {
+      return direction === 'asc' ? aNum - bNum : bNum - aNum;
+    }
+    const cmp = String(aVal).localeCompare(String(bVal), 'zh-Hans-CN');
+    return direction === 'asc' ? cmp : -cmp;
+  });
+}
+
+function handleColumnSort(column, currentColumn, currentDirection) {
+  if (column === currentColumn) {
+    if (currentDirection === 'asc') return { sortColumn: column, sortDirection: 'desc' };
+    return { sortColumn: null, sortDirection: null };
+  }
+  return { sortColumn: column, sortDirection: 'asc' };
 }
 
 function displayAdminRow(row) {

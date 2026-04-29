@@ -51,7 +51,7 @@ test('login protects the portal until credentials are submitted', async () => {
 
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
   expect(screen.getByText(/张老师/)).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '仪表盘' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '数据总览' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '申报审核' })).toBeInTheDocument();
   expect(global.fetch).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({ method: 'POST' }));
 });
@@ -376,7 +376,7 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
-  expect(screen.getByRole('button', { name: '仪表盘' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '数据总览' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '学生管理' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '教师管理' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '教室管理' })).toBeInTheDocument();
