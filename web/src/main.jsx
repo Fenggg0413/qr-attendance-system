@@ -1697,6 +1697,9 @@ function DonutSummary({ distribution }) {
   const absent = Number(distribution.absent ?? 0);
   const late = Number(distribution.late ?? 0);
   const total = Math.max(1, present + absent + late);
+  const presentRate = Math.round((present / total) * 100);
+  const lateRate = Math.round((late / total) * 100);
+  const absentRate = Math.round((absent / total) * 100);
   const presentEnd = (present / total) * 360;
   const lateEnd = presentEnd + (late / total) * 360;
   return (
@@ -1708,9 +1711,9 @@ function DonutSummary({ distribution }) {
         <span>{distribution.rate ?? 0}%</span>
       </div>
       <div className="legendList">
-        <span><i className="present" />出勤 {present}</span>
-        <span><i className="late" />迟到 {late}</span>
-        <span><i className="absent" />缺勤 {absent}</span>
+        <span><i className="present" />出勤率 {presentRate}%</span>
+        <span><i className="late" />迟到率 {lateRate}%</span>
+        <span><i className="absent" />缺勤率 {absentRate}%</span>
       </div>
     </div>
   );
@@ -1906,12 +1909,12 @@ function AdminCoursesPage({ client }) {
             <thead>
               <tr>
                 <th>序号</th>
-                <th className="sortable" onClick={() => handleCourseSort('name')}><span className="thContent">课程名称<span className={`sortIcon ${courseSortColumn === 'name' ? 'active' : ''}`}>{courseSortColumn === 'name' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
-                <th className="sortable" onClick={() => handleCourseSort('code')}><span className="thContent">课程代码<span className={`sortIcon ${courseSortColumn === 'code' ? 'active' : ''}`}>{courseSortColumn === 'code' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
-                <th className="sortable" onClick={() => handleCourseSort('department_name')}><span className="thContent">院系<span className={`sortIcon ${courseSortColumn === 'department_name' ? 'active' : ''}`}>{courseSortColumn === 'department_name' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
-                <th className="sortable" onClick={() => handleCourseSort('teacher_name')}><span className="thContent">授课教师<span className={`sortIcon ${courseSortColumn === 'teacher_name' ? 'active' : ''}`}>{courseSortColumn === 'teacher_name' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
-                <th className="sortable" onClick={() => handleCourseSort('term')}><span className="thContent">学期<span className={`sortIcon ${courseSortColumn === 'term' ? 'active' : ''}`}>{courseSortColumn === 'term' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
-                <th className="sortable" onClick={() => handleCourseSort('student_count')}><span className="thContent">选课人数<span className={`sortIcon ${courseSortColumn === 'student_count' ? 'active' : ''}`}>{courseSortColumn === 'student_count' ? (courseSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <SortableTableHeader label="课程名称" column="name" sortColumn={courseSortColumn} sortDirection={courseSortDirection} onSort={handleCourseSort} />
+                <SortableTableHeader label="课程代码" column="code" sortColumn={courseSortColumn} sortDirection={courseSortDirection} onSort={handleCourseSort} />
+                <SortableTableHeader label="院系" column="department_name" sortColumn={courseSortColumn} sortDirection={courseSortDirection} onSort={handleCourseSort} />
+                <SortableTableHeader label="授课教师" column="teacher_name" sortColumn={courseSortColumn} sortDirection={courseSortDirection} onSort={handleCourseSort} />
+                <SortableTableHeader label="学期" column="term" sortColumn={courseSortColumn} sortDirection={courseSortDirection} onSort={handleCourseSort} />
+                <SortableTableHeader label="选课人数" column="student_count" sortColumn={courseSortColumn} sortDirection={courseSortDirection} onSort={handleCourseSort} />
                 <th></th>
               </tr>
             </thead>
@@ -3513,7 +3516,7 @@ function AdminDepartmentsPage({ client }) {
             <thead>
               <tr>
                 <th>序号</th>
-                <th className="sortable" onClick={() => handleDeptSort('name')}><span className="thContent">院系名称<span className={`sortIcon ${deptSortColumn === 'name' ? 'active' : ''}`}>{deptSortColumn === 'name' ? (deptSortDirection === 'asc' ? '↑' : '↓') : '↕'}</span></span></th>
+                <SortableTableHeader label="院系名称" column="name" sortColumn={deptSortColumn} sortDirection={deptSortDirection} onSort={handleDeptSort} />
                 <th>操作</th>
               </tr>
             </thead>
@@ -3633,6 +3636,27 @@ function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter,
   );
 }
 
+function sortableAriaSort(column, sortColumn, sortDirection) {
+  if (sortColumn !== column) return 'none';
+  return sortDirection === 'asc' ? 'ascending' : 'descending';
+}
+
+function SortableTableHeader({ label, column, sortColumn, sortDirection, onSort }) {
+  const isSorted = sortColumn === column;
+  return (
+    <th className="sortable" aria-sort={sortableAriaSort(column, sortColumn, sortDirection)}>
+      <button type="button" className="sortButton" onClick={() => onSort(column)}>
+        <span className="thContent">
+          {label}
+          <span className={`sortIcon ${isSorted ? 'active' : ''}`} aria-hidden="true">
+            {isSorted ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+          </span>
+        </span>
+      </button>
+    </th>
+  );
+}
+
 function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null, sortColumn, sortDirection, onSort }) {
   const hasActions = Boolean(onEdit || onDelete || onResetPassword);
   return (
@@ -3644,24 +3668,20 @@ function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '
             <tr>
               {columns.map((column) => {
                 const canSort = column !== 'display_index' && onSort;
-                const isSorted = sortColumn === column;
                 const label = labels[column] ?? adminLabels[column] ?? column;
-                return (
-                  <th
-                    key={column}
-                    className={canSort ? 'sortable' : undefined}
-                    onClick={canSort ? () => onSort(column) : undefined}
-                  >
-                    <span className="thContent">
-                      {label}
-                      {canSort && (
-                        <span className={`sortIcon ${isSorted ? 'active' : ''}`}>
-                          {isSorted ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-                        </span>
-                      )}
-                    </span>
-                  </th>
-                );
+                if (canSort) {
+                  return (
+                    <SortableTableHeader
+                      key={column}
+                      label={label}
+                      column={column}
+                      sortColumn={sortColumn}
+                      sortDirection={sortDirection}
+                      onSort={onSort}
+                    />
+                  );
+                }
+                return <th key={column}>{label}</th>;
               })}
               {hasActions && <th>操作</th>}
             </tr>

@@ -386,6 +386,9 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   expect(screen.getByText('学生总数')).toBeInTheDocument();
   expect(screen.getByText('近 7 天出勤趋势')).toBeInTheDocument();
   expect(screen.getByText('总体出勤状态分布')).toBeInTheDocument();
+  expect(screen.getByText('出勤率 82%')).toBeInTheDocument();
+  expect(screen.getByText('迟到率 5%')).toBeInTheDocument();
+  expect(screen.getByText('缺勤率 14%')).toBeInTheDocument();
   expect(screen.getAllByText('生成式 AI').length).toBeGreaterThan(0);
   expect(screen.getByText('最近活动记录')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '标记考勤' })).not.toBeInTheDocument();
@@ -619,6 +622,10 @@ test('admin course management uses searchable table and modal creation', async (
   expect(screen.getByRole('columnheader', { name: '授课教师' })).toBeInTheDocument();
   expect(screen.getByRole('columnheader', { name: '学期' })).toBeInTheDocument();
   expect(screen.getByRole('columnheader', { name: '选课人数' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: '授课教师' })).toHaveAttribute('aria-sort', 'none');
+  screen.getByRole('button', { name: '授课教师' }).focus();
+  await userEvent.keyboard('{Enter}');
+  expect(screen.getByRole('columnheader', { name: '授课教师' })).toHaveAttribute('aria-sort', 'ascending');
   expect(Array.from(container.querySelectorAll('.courseDataTable tbody tr')).map((row) => row.querySelector('td')?.textContent)).toEqual(['1', '2']);
   expect(screen.getByText('李老师')).toBeInTheDocument();
   expect(screen.getAllByText('2026 春季').length).toBeGreaterThan(0);

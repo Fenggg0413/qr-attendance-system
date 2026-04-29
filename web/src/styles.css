@@ -1694,13 +1694,33 @@ th {
 }
 
 .adminTable th.sortable {
-  cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  padding: 0;
 }
 
 .adminTable th.sortable:hover {
   background: #e8f0ec;
+}
+
+.adminTable th .sortButton {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: inherit;
+  justify-content: flex-start;
+  padding: 11px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.adminTable th .sortButton:focus-visible {
+  outline: 2px solid #176b5b;
+  outline-offset: -2px;
 }
 
 .adminTable th .thContent {
