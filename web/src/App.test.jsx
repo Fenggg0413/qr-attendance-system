@@ -23,6 +23,7 @@ const sessions = [
     absent_count: 1,
     excused_count: 0,
     late_count: 0,
+    total_count: 2,
   },
 ];
 
@@ -103,6 +104,53 @@ test('teacher can filter courses and open detail tabs', async () => {
   await waitFor(() => expect(screen.getByDisplayValue('需要关注')).toBeInTheDocument());
   await userEvent.click(screen.getByRole('tab', { name: '可视化' }));
   expect(screen.getByText('高风险缺勤学生排行')).toBeInTheDocument();
+});
+
+test('course detail shows course attendance and absence rates averaged by session', async () => {
+  mockTeacherApi({
+    sessions: [
+      {
+        id: 91,
+        course_id: 1,
+        started_at: '2026-04-25T08:00:00Z',
+        ends_at: '2026-04-25T08:45:00Z',
+        status: 'CLOSED',
+        method: 'QR',
+        present_count: 1,
+        late_count: 1,
+        excused_count: 0,
+        absent_count: 0,
+        total_count: 2,
+      },
+      {
+        id: 92,
+        course_id: 1,
+        started_at: '2026-04-26T08:00:00Z',
+        ends_at: '2026-04-26T08:45:00Z',
+        status: 'CLOSED',
+        method: 'QR',
+        present_count: 0,
+        late_count: 0,
+        excused_count: 0,
+        absent_count: 4,
+        total_count: 4,
+      },
+    ],
+  });
+
+  const { container } = render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
+  await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]);
+  await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
+
+  const statCards = Array.from(container.querySelectorAll('.statCard'));
+  expect(statCards.map((card) => card.textContent)).toContain('50%到课率');
+  expect(statCards.map((card) => card.textContent)).toContain('50%缺勤率');
+  expect(screen.queryByText('累计已到')).not.toBeInTheDocument();
+  expect(screen.queryByText('累计缺勤')).not.toBeInTheDocument();
 });
 
 test('course search input keeps focus cursor without browser outline', () => {
@@ -757,7 +805,7 @@ function mockTeacherApi(overrides = {}) {
     if (url.endsWith('/teacher/courses/1') && method === 'GET') {
       return response({ ...courses[0], scheduleSlots: [{ id: 11, weekday: '周一', period: 1, classroom_name: '教三-101' }, { id: 12, weekday: '周三', period: 3, classroom_name: '教三-101' }] });
     }
-    if (url.endsWith('/teacher/courses/1/attendance-sessions') && method === 'GET') return response(sessions);
+    if (url.endsWith('/teacher/courses/1/attendance-sessions') && method === 'GET') return response(overrides.sessions ?? sessions);
     if (url.endsWith('/teacher/courses/1/students')) {
       return response([
         { id: 1, name: '李同学', student_no: '20230001', note: '需要关注' },

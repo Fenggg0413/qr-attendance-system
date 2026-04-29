@@ -84,6 +84,33 @@ class DatabaseInitializerTest {
             .containsAll(java.util.List.of("周一", "周三", "周五")));
   }
 
+  @Test
+  void initMigratesLegacyScheduleSlotForeignKeyToSetNullOnDelete() throws Exception {
+    JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource("jdbc:sqlite::memory:", true));
+    jdbc.execute("PRAGMA foreign_keys = ON");
+    jdbc.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, role TEXT NOT NULL, display_name TEXT NOT NULL)");
+    jdbc.execute("CREATE TABLE departments (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE)");
+    jdbc.execute("CREATE TABLE classes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, grade TEXT)");
+    jdbc.execute("CREATE TABLE courses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, code TEXT NOT NULL UNIQUE, class_id INTEGER REFERENCES classes(id), department_id INTEGER REFERENCES departments(id))");
+    jdbc.execute("CREATE TABLE teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL UNIQUE REFERENCES users(id), name TEXT NOT NULL, department TEXT, department_id INTEGER REFERENCES departments(id), phone TEXT, email TEXT)");
+    jdbc.execute("CREATE TABLE classrooms (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, building TEXT, capacity INTEGER)");
+    jdbc.execute("CREATE TABLE course_schedule_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE, teacher_id INTEGER NOT NULL REFERENCES teachers(id), classroom_id INTEGER NOT NULL REFERENCES classrooms(id), weekday TEXT NOT NULL, period INTEGER NOT NULL, course_type TEXT NOT NULL, UNIQUE(course_id, weekday, period))");
+    jdbc.execute("CREATE TABLE attendance_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL REFERENCES courses(id), teacher_id INTEGER NOT NULL REFERENCES teachers(id), started_at TEXT NOT NULL, ends_at TEXT NOT NULL, status TEXT NOT NULL, method TEXT NOT NULL DEFAULT 'QR', schedule_slot_id INTEGER REFERENCES course_schedule_slots(id), period_end INTEGER, kind TEXT NOT NULL DEFAULT 'SCHEDULED', makeup_reason TEXT)");
+    jdbc.update("INSERT INTO users(username, password_hash, role, display_name) VALUES (?, ?, ?, ?)", "seed-admin", "hash", "ADMIN", "管理员");
+    jdbc.update("INSERT INTO users(username, password_hash, role, display_name) VALUES (?, ?, ?, ?)", "teacher", "hash", "TEACHER", "教师");
+    jdbc.update("INSERT INTO courses(name, code) VALUES (?, ?)", "旧课程", "LEGACY-COURSE");
+    jdbc.update("INSERT INTO teachers(user_id, name) VALUES (?, ?)", 2, "教师");
+    jdbc.update("INSERT INTO classrooms(name) VALUES (?)", "旧教室");
+    jdbc.update("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", 1, 1, 1, "周一", 1, "LECTURE");
+    jdbc.update("INSERT INTO attendance_sessions(course_id, teacher_id, started_at, ends_at, status, schedule_slot_id) VALUES (?, ?, ?, ?, ?, ?)", 1, 1, "2026-01-01T08:00:00", "2026-01-01T08:45:00", "OPEN", 1);
+
+    new DatabaseInitializer(jdbc).init();
+
+    assertEquals("SET NULL", scheduleSlotForeignKeyDeleteAction(jdbc));
+    jdbc.update("DELETE FROM course_schedule_slots WHERE id = ?", 1);
+    assertEquals(null, jdbc.queryForObject("SELECT schedule_slot_id FROM attendance_sessions WHERE id = ?", Object.class, 1));
+  }
+
   private int notNullFlag(JdbcTemplate jdbc, String table, String column) {
     return jdbc.queryForList("PRAGMA table_info(" + table + ")").stream()
         .filter(row -> column.equals(row.get("name")))
@@ -95,5 +122,13 @@ class DatabaseInitializerTest {
   private int count(JdbcTemplate jdbc, String sql, Object... args) {
     Integer value = jdbc.queryForObject(sql, Integer.class, args);
     return value == null ? 0 : value;
+  }
+
+  private String scheduleSlotForeignKeyDeleteAction(JdbcTemplate jdbc) {
+    return jdbc.queryForList("PRAGMA foreign_key_list(attendance_sessions)").stream()
+        .filter(row -> "schedule_slot_id".equals(row.get("from")))
+        .map(row -> String.valueOf(row.get("on_delete")))
+        .findFirst()
+        .orElseThrow();
   }
 }

@@ -63,6 +63,7 @@ public class DatabaseInitializer {
     addColumnIfMissing("attendance_sessions", "period_end", "INTEGER");
     addColumnIfMissing("attendance_sessions", "kind", "TEXT NOT NULL DEFAULT 'SCHEDULED'");
     addColumnIfMissing("attendance_sessions", "makeup_reason", "TEXT");
+    migrateAttendanceSessionsScheduleSlotForeignKey();
     ensureDefaultDepartment();
     ensureDefaultTerms();
     backfillStudentGrades();
@@ -134,6 +135,36 @@ public class DatabaseInitializer {
     } finally {
       jdbc.execute("PRAGMA foreign_keys = " + (foreignKeysEnabled ? "ON" : "OFF"));
     }
+  }
+
+  private void migrateAttendanceSessionsScheduleSlotForeignKey() {
+    if (scheduleSlotForeignKeySetsNullOnDelete()) {
+      return;
+    }
+
+    boolean foreignKeysEnabled = foreignKeysEnabled();
+    jdbc.execute("PRAGMA foreign_keys = OFF");
+    try {
+      jdbc.execute("CREATE TABLE attendance_sessions_new (id INTEGER PRIMARY KEY AUTOINCREMENT, course_id INTEGER NOT NULL REFERENCES courses(id), teacher_id INTEGER NOT NULL REFERENCES teachers(id), started_at TEXT NOT NULL, ends_at TEXT NOT NULL, status TEXT NOT NULL, method TEXT NOT NULL DEFAULT 'QR', schedule_slot_id INTEGER REFERENCES course_schedule_slots(id) ON DELETE SET NULL, period_end INTEGER, kind TEXT NOT NULL DEFAULT 'SCHEDULED', makeup_reason TEXT)");
+      jdbc.execute(
+          """
+          INSERT INTO attendance_sessions_new(id, course_id, teacher_id, started_at, ends_at, status, method, schedule_slot_id, period_end, kind, makeup_reason)
+          SELECT id, course_id, teacher_id, started_at, ends_at, status, method, schedule_slot_id, period_end, kind, makeup_reason
+          FROM attendance_sessions
+          """);
+      jdbc.execute("DROP TABLE attendance_sessions");
+      jdbc.execute("ALTER TABLE attendance_sessions_new RENAME TO attendance_sessions");
+    } finally {
+      jdbc.execute("PRAGMA foreign_keys = " + (foreignKeysEnabled ? "ON" : "OFF"));
+    }
+  }
+
+  private boolean scheduleSlotForeignKeySetsNullOnDelete() {
+    return jdbc.queryForList("PRAGMA foreign_key_list(attendance_sessions)").stream()
+        .anyMatch(
+            row ->
+                "schedule_slot_id".equalsIgnoreCase(String.valueOf(row.get("from")))
+                    && "SET NULL".equalsIgnoreCase(String.valueOf(row.get("on_delete"))));
   }
 
   private boolean isNotNullColumn(String table, String column) {

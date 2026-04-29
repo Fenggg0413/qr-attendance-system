@@ -623,14 +623,13 @@ function CourseDetail({ client, course, sessions, students, activeTab, loading, 
           <h1>{courseNameText(course.name)}</h1>
           <p>{course.code} · {course.class_name} · {course.semester}</p>
         </div>
-        <span className="hint">前往「今日课表」按节次发起考勤</span>
       </section>
 
       <section className="statGrid">
         <StatCard icon={<UsersRound />} value={course.student_count ?? 0} label="学生数" />
         <StatCard icon={<ClipboardCheck />} value={sessions.length} label="考勤次数" />
-        <StatCard icon={<Check />} value={totals.present} label="累计已到" />
-        <StatCard icon={<Clock />} value={totals.absent} label="累计缺勤" />
+        <StatCard icon={<Check />} value={totals.attendanceRate} label="到课率" />
+        <StatCard icon={<Clock />} value={totals.absenceRate} label="缺勤率" />
       </section>
 
       <div className="tabs" role="tablist" aria-label="课程详情">
@@ -3686,13 +3685,26 @@ function formatAdminCell(row, column) {
 }
 
 function sessionTotals(sessions) {
-  return sessions.reduce(
-    (sum, row) => ({
-      present: sum.present + Number(row.present_count ?? 0),
-      absent: sum.absent + Number(row.absent_count ?? 0),
-    }),
-    { present: 0, absent: 0 },
+  const validSessions = sessions.filter((row) => Number(row.total_count ?? 0) > 0);
+  if (!validSessions.length) {
+    return { attendanceRate: '0%', absenceRate: '0%' };
+  }
+
+  const rates = validSessions.reduce(
+    (sum, row) => {
+      const total = Number(row.total_count ?? 0);
+      const attended = Number(row.present_count ?? 0) + Number(row.late_count ?? 0);
+      return {
+        attendance: sum.attendance + attended / total,
+        absence: sum.absence + Number(row.absent_count ?? 0) / total,
+      };
+    },
+    { attendance: 0, absence: 0 },
   );
+  return {
+    attendanceRate: `${Math.round((rates.attendance / validSessions.length) * 100)}%`,
+    absenceRate: `${Math.round((rates.absence / validSessions.length) * 100)}%`,
+  };
 }
 
 function formatDate(value) {
