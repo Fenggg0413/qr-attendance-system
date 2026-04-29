@@ -235,6 +235,43 @@ class QrAttendanceApiTest {
   }
 
   @Test
+  void adminCanResetBusinessDataAndImportCampusDemoAccountsWithoutLegacyUsers() throws Exception {
+    long suffix = System.nanoTime();
+    long legacyDepartmentId = createDepartment("旧内置账号学院-" + suffix);
+    if (countUsers("teacher1") == 0) {
+      createTeacher("teacher1", "teacher123", "旧教师", legacyDepartmentId);
+    }
+    if (countUsers("B22042101") == 0) {
+      createStudent("B22042101", "旧学生", "B22042101", legacyDepartmentId);
+    }
+    String token = login("admin", "admin123");
+
+    mvc.perform(
+            post("/api/admin/demo-data/reset")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("preset", "small"))))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.teachers").isNumber())
+        .andExpect(jsonPath("$.students").isNumber())
+        .andExpect(jsonPath("$.sampleTeacher.username", org.hamcrest.Matchers.matchesPattern("t20\\d{5}")))
+        .andExpect(jsonPath("$.sampleStudent.username", org.hamcrest.Matchers.matchesPattern("B\\d{2}\\d{4}\\d{2}")))
+        .andExpect(jsonPath("$.sampleStudent.username", org.hamcrest.Matchers.not("B22042101")));
+
+    mvc.perform(get("/api/me").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.username", is("admin")))
+        .andExpect(jsonPath("$.role", is("ADMIN")));
+    org.junit.jupiter.api.Assertions.assertEquals(0, countUsers("teacher1"));
+    org.junit.jupiter.api.Assertions.assertEquals(0, countUsers("B22042101"));
+    org.junit.jupiter.api.Assertions.assertEquals(0, countUsers("student1"));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        jdbc.queryForObject("SELECT COUNT(*) FROM attendance_records", Integer.class) > 0);
+    org.junit.jupiter.api.Assertions.assertTrue(
+        jdbc.queryForObject("SELECT COUNT(*) FROM leave_requests", Integer.class) > 0);
+  }
+
+  @Test
   void adminCanManageClassroomsAndCourseScheduleSlotsWithConflictChecks() throws Exception {
     long suffix = System.nanoTime();
     String token = login("admin", "admin123");
@@ -495,8 +532,16 @@ class QrAttendanceApiTest {
 
   @Test
   void teacherStartsSessionAndQrPayloadUsesTenSecondToken() throws Exception {
-    String token = login("teacher1", "teacher123");
-    long sessionId = createSession(token);
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("二维码学院-" + suffix);
+    long teacherId = createTeacher("teacher-qr-" + suffix, "teacher123", "二维码老师", departmentId);
+    long courseId = createCourse("二维码课程-" + suffix, "QR-" + suffix, departmentId);
+    createAssignment(courseId, teacherId);
+    long classroomId = createClassroom("二维码教室-" + suffix, "教学楼");
+    createScheduleSlot(courseId, teacherId, classroomId, "周一", 1, "LECTURE");
+
+    String token = login("teacher-qr-" + suffix, "teacher123");
+    long sessionId = createSession(token, courseId);
 
     mvc.perform(get("/api/teacher/attendance-sessions/" + sessionId + "/qr").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
@@ -507,22 +552,30 @@ class QrAttendanceApiTest {
 
   @Test
   void teacherCourseWorkflowReturnsFullRecordsAndCanCloseSession() throws Exception {
-    long extraStudentId = createStudent("student-extra", "王同学", "20230002", 1);
-    enroll(1, extraStudentId);
-    String token = login("teacher1", "teacher123");
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("教师流程学院-" + suffix);
+    long teacherId = createTeacher("teacher-flow-" + suffix, "teacher123", "流程老师", departmentId);
+    long studentId = createStudent("student-flow-a-" + suffix, "李同学", "FLOW-A-" + suffix, departmentId);
+    long extraStudentId = createStudent("student-flow-b-" + suffix, "王同学", "FLOW-B-" + suffix, departmentId);
+    long courseId = createCourse("教师流程课程-" + suffix, "FLOW-" + suffix, departmentId);
+    long assignmentId = createAssignment(courseId, teacherId, "2025-2026 第二学期");
+    enroll(assignmentId, studentId);
+    enroll(assignmentId, extraStudentId);
+    long classroomId = createClassroom("流程教室-" + suffix, "教学楼");
+    long seedSlotId = createScheduleSlot(courseId, teacherId, classroomId, "周一", 1, "LECTURE");
+    String token = login("teacher-flow-" + suffix, "teacher123");
 
     mvc.perform(get("/api/teacher/courses").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[0].student_count", is(2)))
-        .andExpect(jsonPath("$[0].semester", is("2025-2026 第二学期")));
+        .andExpect(jsonPath("$[?(@.id == " + courseId + ")].student_count").value(org.hamcrest.Matchers.hasItem(2)))
+        .andExpect(jsonPath("$[?(@.id == " + courseId + ")].semester").value(org.hamcrest.Matchers.hasItem("2025-2026 第二学期")));
 
-    mvc.perform(get("/api/teacher/courses/1").header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/teacher/courses/" + courseId).header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id", is(1)))
+        .andExpect(jsonPath("$.id", is((int) courseId)))
         .andExpect(jsonPath("$.student_count", is(2)))
-        .andExpect(jsonPath("$.scheduleSlots[0].classroom_name", is("教三-101")));
+        .andExpect(jsonPath("$.scheduleSlots[0].classroom_name", is("流程教室-" + suffix)));
 
-    long seedSlotId = ensureAnySlot(1L, teacherIdForCourse(1L));
     JsonNode created =
         mapper.readTree(
             mvc.perform(
@@ -538,7 +591,7 @@ class QrAttendanceApiTest {
                 .getContentAsString());
     long sessionId = created.get("id").asLong();
 
-    mvc.perform(get("/api/teacher/courses/1/attendance-sessions").header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/teacher/courses/" + courseId + "/attendance-sessions").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].method", is("CODE")))
         .andExpect(jsonPath("$[0].absent_count", is(2)));
@@ -556,9 +609,9 @@ class QrAttendanceApiTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.note", is("需要课后提醒")));
 
-    mvc.perform(get("/api/teacher/courses/1/students").header("Authorization", "Bearer " + token))
+    mvc.perform(get("/api/teacher/courses/" + courseId + "/students").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$[?(@.student_no == '20230002')].note").value(org.hamcrest.Matchers.hasItem("需要课后提醒")));
+        .andExpect(jsonPath("$[?(@.student_no == 'FLOW-B-" + suffix + "')].note").value(org.hamcrest.Matchers.hasItem("需要课后提醒")));
 
     mvc.perform(post("/api/teacher/attendance-sessions/" + sessionId + "/close").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
@@ -814,9 +867,10 @@ class QrAttendanceApiTest {
 
   @Test
   void studentCheckInRejectsOldQrAndDeduplicatesCurrentQr() throws Exception {
-    String teacherToken = login("teacher1", "teacher123");
-    long sessionId = createSession(teacherToken);
-    String studentToken = login("B22042101", "123456");
+    StudentCourseSeed seed = seedStudentWithCourse("check-in");
+    String teacherToken = login(seed.teacherUsername(), "teacher123");
+    long sessionId = seed.sessionId();
+    String studentToken = login(seed.studentUsername(), "student123");
     long oldBucket = System.currentTimeMillis() / 1000 / QrTokenService.BUCKET_SECONDS - 1;
 
     mvc.perform(
@@ -846,9 +900,9 @@ class QrAttendanceApiTest {
 
   @Test
   void approvedLeaveCreatesExcusedRecordForStatistics() throws Exception {
-    String teacherToken = login("teacher1", "teacher123");
-    long sessionId = createSession(teacherToken);
-    String studentToken = login("B22042101", "123456");
+    StudentCourseSeed seed = seedStudentWithCourse("approved-leave");
+    long sessionId = seed.sessionId();
+    String studentToken = login(seed.studentUsername(), "student123");
     String adminToken = login("admin", "admin123");
 
     JsonNode leave =
@@ -963,14 +1017,20 @@ class QrAttendanceApiTest {
 
   @Test
   void teacherDashboardEndpointIsRemoved() throws Exception {
-    String token = login("teacher1", "teacher123");
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("移除面板学院-" + suffix);
+    createTeacher("teacher-removed-dashboard-" + suffix, "teacher123", "移除面板老师", departmentId);
+    String token = login("teacher-removed-dashboard-" + suffix, "teacher123");
     mvc.perform(get("/api/teacher/dashboard").header("Authorization", "Bearer " + token))
         .andExpect(status().isNotFound());
   }
 
   @Test
   void freeFormSessionCreateEndpointIsRemoved() throws Exception {
-    String token = login("teacher1", "teacher123");
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("移除自由考勤学院-" + suffix);
+    createTeacher("teacher-removed-session-" + suffix, "teacher123", "移除自由考勤老师", departmentId);
+    String token = login("teacher-removed-session-" + suffix, "teacher123");
     mvc.perform(
             post("/api/teacher/courses/1/attendance-sessions")
                 .header("Authorization", "Bearer " + token)
@@ -1274,6 +1334,11 @@ class QrAttendanceApiTest {
         role,
         displayName);
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private int countUsers(String username) {
+    Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE username = ?", Integer.class, username);
+    return count == null ? 0 : count;
   }
 
   private StudentCourseSeed seedStudentWithCourse(String prefix) {

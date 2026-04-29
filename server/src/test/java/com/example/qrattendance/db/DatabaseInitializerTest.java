@@ -1,7 +1,6 @@
 package com.example.qrattendance.db;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.qrattendance.auth.PasswordHasher;
 import org.junit.jupiter.api.Test;
@@ -51,37 +50,23 @@ class DatabaseInitializerTest {
   }
 
   @Test
-  void seedCreatesRealStudentAccountAndScheduleWithoutStudent1() throws Exception {
+  void seedCreatesOnlyAdminAccountWithoutLegacyTeacherOrStudentAccounts() throws Exception {
     JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource("jdbc:sqlite::memory:", true));
 
     new DatabaseInitializer(jdbc).init();
 
-    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM users WHERE username = 'student1'"));
     assertEquals(
         1,
         count(
             jdbc,
-            "SELECT COUNT(*) FROM users u JOIN students s ON s.user_id = u.id WHERE u.username = 'B22042101' AND u.password_hash = ? AND s.student_no = 'B22042101'",
-            PasswordHasher.hash("123456")));
-    assertEquals(
-        6,
-        count(
-            jdbc,
-            """
-            SELECT COUNT(*)
-            FROM users u
-            JOIN students s ON s.user_id = u.id
-            JOIN course_enrollments ce ON ce.student_id = s.id
-            JOIN course_assignments ca ON ca.id = ce.assignment_id
-            JOIN course_schedule_slots css ON css.course_id = ca.course_id AND css.teacher_id = ca.teacher_id
-            WHERE u.username = 'B22042101' AND css.weekday IN ('周一', '周三', '周五')
-            """));
-    assertTrue(
-        jdbc.queryForList(
-                "SELECT DISTINCT weekday FROM course_schedule_slots ORDER BY weekday").stream()
-            .map(row -> String.valueOf(row.get("weekday")))
-            .toList()
-            .containsAll(java.util.List.of("周一", "周三", "周五")));
+            "SELECT COUNT(*) FROM users WHERE username = 'admin' AND role = 'ADMIN' AND password_hash = ?",
+            PasswordHasher.hash("admin123")));
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM users WHERE username = 'teacher1'"));
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM users WHERE username = 'B22042101'"));
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM users WHERE username = 'student1'"));
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM teachers"));
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM students"));
+    assertEquals(0, count(jdbc, "SELECT COUNT(*) FROM courses"));
   }
 
   @Test

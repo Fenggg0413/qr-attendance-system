@@ -33,7 +33,27 @@ cd server
 mvn -Dmaven.repo.local=/tmp/dynamic-qr-attendance-m2 spring-boot:run
 ```
 
-服务运行在 `http://localhost:8080`，首次启动自动创建 SQLite 数据库并填充演示数据。
+服务运行在 `http://localhost:8080`，首次启动自动创建 SQLite 数据库和管理员账号。
+
+### 生成学校演示数据
+
+后端首次启动只会内置管理员账号，不再创建 `teacher1` 等测试教师/学生账号。需要一套完整学校数据时，先启动后端，再运行：
+
+```sh
+node scripts/reset-campus-demo.mjs
+```
+
+脚本会保留管理员账号，删除现有教师、学生、课程、排课、考勤、请假等业务数据，并生成中等规模校园数据。生成规则：
+
+- 教师账号格式为 `tYYYYNNN`，例如 `t2024001`，默认密码 `123456`
+- 学生账号与学号一致，格式为 `BYYCCCCNN`，默认密码 `123456`
+- 默认包含约 6 个学院、24 个班、60 名教师、720 名学生、120 门课，以及最近 8 周考勤历史
+
+可选参数：
+
+```sh
+node scripts/reset-campus-demo.mjs --api-base http://localhost:8080/api --username admin --password admin123 --preset medium
+```
 
 ### 启动前端
 
@@ -54,15 +74,15 @@ GRADLE_USER_HOME=/tmp/dynamic_qr_attendance_gradle ./gradlew :app:assembleDebug
 
 模拟器中 API 地址默认为 `http://10.0.2.2:8080/api`。真机调试时，在登录页的“服务器地址”中填写运行后端电脑的局域网地址，例如 `http://192.168.1.23:8080/api`；手机和电脑需要处在同一网络，且电脑防火墙需允许访问 `8080` 端口。
 
-## 演示账号
+## 默认账号
 
-首次启动时自动创建以下账号（默认密码 `123456`）：
+首次启动时只自动创建管理员账号：
 
 | 角色   | 用户名       | 密码         | 显示名     |
 | ------ | ------------ | ------------ | ---------- |
 | 管理员 | `admin`      | `admin123`   | 系统管理员 |
-| 教师   | `teacher1`   | `teacher123` | 刘老师     |
-| 学生   | `B22042101`  | `123456`     | 李同学     |
+
+教师和学生账号由 `scripts/reset-campus-demo.mjs` 生成，脚本执行完成后会输出可登录的示例账号。
 
 ## API 概览
 

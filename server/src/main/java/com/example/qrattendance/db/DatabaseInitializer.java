@@ -73,23 +73,7 @@ public class DatabaseInitializer {
   private void seed() {
     if (count("users") > 0) return;
     long admin = user("admin", "admin123", "ADMIN", "系统管理员");
-    long teacherUser = user("teacher1", "teacher123", "TEACHER", "刘老师");
-    long studentUser = user("B22042101", "123456", "STUDENT", "李同学");
-    long departmentId = defaultDepartmentId();
-    long classId = insert("INSERT INTO classes(name, grade) VALUES (?, ?)", "软件 2204", "2022");
-    long teacherId = insert("INSERT INTO teachers(user_id, name, department, department_id) VALUES (?, ?, ?, ?)", teacherUser, "刘老师", "计算机学院", departmentId);
-    long studentId = insert("INSERT INTO students(user_id, class_id, department_id, grade, name, student_no) VALUES (?, ?, ?, ?, ?, ?)", studentUser, classId, departmentId, "2022", "李同学", "B22042101");
-    long courseId = insert("INSERT INTO courses(name, code, class_id, department_id) VALUES (?, ?, ?, ?)", "Java Web 开发", "JAVA-WEB-01", classId, departmentId);
-    long assignmentId = insert("INSERT INTO course_assignments(course_id, teacher_id, term) VALUES (?, ?, ?)", courseId, teacherId, "2025-2026 第二学期");
-    insert("INSERT INTO course_enrollments(assignment_id, student_id) VALUES (?, ?)", assignmentId, studentId);
-    long classroomId = insert("INSERT INTO classrooms(name, building, capacity) VALUES (?, ?, ?)", "教三-101", "教三", 80);
-    insert("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", courseId, teacherId, classroomId, "周一", 1, "LECTURE");
-    insert("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", courseId, teacherId, classroomId, "周一", 2, "LECTURE");
-    insert("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", courseId, teacherId, classroomId, "周三", 3, "LECTURE");
-    insert("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", courseId, teacherId, classroomId, "周三", 4, "LECTURE");
-    insert("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", courseId, teacherId, classroomId, "周五", 6, "LECTURE");
-    insert("INSERT INTO course_schedule_slots(course_id, teacher_id, classroom_id, weekday, period, course_type) VALUES (?, ?, ?, ?, ?, ?)", courseId, teacherId, classroomId, "周五", 7, "LECTURE");
-    admin += studentId; // 避免演示数据变量被误删。
+    if (admin == 0) throw new IllegalStateException("管理员账号初始化失败");
   }
 
   private long user(String username, String password, String role, String displayName) {

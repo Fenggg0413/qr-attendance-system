@@ -45,10 +45,10 @@ public class AdminController {
             """
             SELECT co.id course_id,
                    co.name course_name,
-                   COUNT(DISTINCT ce.student_id) total,
+                   COUNT(ce.student_id) total,
                    SUM(CASE WHEN ar.status = 'PRESENT' THEN 1 ELSE 0 END) present,
                    SUM(CASE WHEN ar.status = 'LATE' THEN 1 ELSE 0 END) late,
-                   COUNT(DISTINCT ce.student_id) - SUM(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 ELSE 0 END) absent
+                   COUNT(ce.student_id) - SUM(CASE WHEN ar.status IN ('PRESENT', 'LATE', 'EXCUSED') THEN 1 ELSE 0 END) absent
             FROM courses co
             LEFT JOIN course_assignments ca ON ca.course_id = co.id
             LEFT JOIN course_enrollments ce ON ce.assignment_id = ca.id
