@@ -200,6 +200,36 @@ test('today board disables CTA before period and shows running countdown for act
   await waitFor(() => expect(screen.getByText('动态签到码')).toBeInTheDocument());
 });
 
+test('ended today session shows records even when qr endpoint is gone', async () => {
+  mockTeacherApi({
+    expiredQrSessionIds: [9],
+    todayCards: [
+      {
+        slotId: 11,
+        courseId: 1,
+        courseName: 'Java Web 开发',
+        classroomName: '教三-101',
+        className: '软件 2204',
+        periodStart: 1,
+        periodEnd: 2,
+        startTime: '2026-04-25T08:00:00+08:00',
+        endTime: '2026-04-25T09:35:00+08:00',
+        phase: 'ENDED',
+        session: { id: 9, status: 'CLOSED', method: 'QR', endsAt: '2026-04-25T09:35:00+08:00', ends_at: '2026-04-25T09:35:00+08:00', presentCount: 1, totalCount: 2 },
+      },
+    ],
+  });
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: '查看记录' }));
+
+  await waitFor(() => expect(screen.getByText('王同学')).toBeInTheDocument());
+  expect(global.fetch).toHaveBeenCalledWith('/api/teacher/attendance-sessions/9/records', expect.anything());
+});
+
 test('makeup dialog enforces reason and posts to makeup endpoint', async () => {
   mockTeacherApi({ todayCards: [] });
 
@@ -735,6 +765,7 @@ function mockTeacherApi(overrides = {}) {
       ]);
     }
     if (url.endsWith('/teacher/attendance-sessions/9/records') || url.endsWith('/teacher/attendance-sessions/10/records') || url.endsWith('/teacher/attendance-sessions/12/records')) return response(records);
+    if (overrides.expiredQrSessionIds?.some((id) => url.endsWith(`/teacher/attendance-sessions/${id}/qr`))) return errorResponse(410, { message: '考勤已结束' });
     if (url.endsWith('/teacher/attendance-sessions/10/qr') || url.endsWith('/teacher/attendance-sessions/12/qr')) return response({ sessionId: 10, payload: 'qr-attendance://checkin?sessionId=10&token=abc', token: 'abc', expiresAt: '2026-04-25T08:11:00Z' });
     if (url.endsWith('/teacher/attendance-sessions/10/close') || url.endsWith('/teacher/attendance-sessions/12/close')) return response({ id: 10, status: 'CLOSED', method: 'CODE' });
     if (url.endsWith('/teacher/profile') && method === 'GET') return response({ name: '张老师', username: 'teacher1', department: '计算机学院', phone: '13800000000', email: 'teacher@example.com' });

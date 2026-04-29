@@ -569,6 +569,10 @@ public class AdminController {
   @DeleteMapping("/courses/{courseId}/schedule-slots/{slotId}")
   public void deleteScheduleSlot(@PathVariable long courseId, @PathVariable long slotId) {
     admin();
+    jdbc.update(
+        "UPDATE attendance_sessions SET schedule_slot_id = NULL WHERE schedule_slot_id IN (SELECT id FROM course_schedule_slots WHERE id = ? AND course_id = ?)",
+        slotId,
+        courseId);
     jdbc.update("DELETE FROM course_schedule_slots WHERE id = ? AND course_id = ?", slotId, courseId);
   }
 

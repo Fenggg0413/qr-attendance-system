@@ -870,7 +870,14 @@ function TodayBoard({ client, courses, onLive }) {
     if (!card.session) return;
     const headline = `${courseNameText(card.courseName)} · 第 ${card.periodStart}${card.periodEnd > card.periodStart ? `-${card.periodEnd}` : ''} 节`;
     const subline = `${card.className || ''}${card.classroomName ? ` · ${card.classroomName}` : ''}`;
-    onLive({ id: card.session.id, endsAt: card.session.ends_at ?? card.session.endsAt, headline, subline });
+    onLive({
+      id: card.session.id,
+      endsAt: card.session.ends_at ?? card.session.endsAt,
+      status: card.session.status,
+      recordsOnly: card.phase === 'ENDED',
+      headline,
+      subline,
+    });
   }
 
   return (
@@ -1087,7 +1094,7 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
   const [qr, setQr] = useState(null);
   const [records, setRecords] = useState([]);
   const [error, setError] = useState('');
-  const [ended, setEnded] = useState(false);
+  const [ended, setEnded] = useState(() => session?.recordsOnly || session?.status === 'CLOSED');
   const [remaining, setRemaining] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -1096,31 +1103,42 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
   const progressPct = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   useEffect(() => {
-    if (!session || ended) return undefined;
+    if (!session) return undefined;
     let cancelled = false;
     async function refresh() {
       try {
+        const shouldLoadQr = !session.recordsOnly && !ended;
+        const qrRequest = shouldLoadQr
+          ? client.get(`/teacher/attendance-sessions/${session.id}/qr`).catch((err) => {
+            if (err instanceof ApiError && err.status === 410) {
+              return null;
+            }
+            throw err;
+          })
+          : Promise.resolve(null);
         const [nextQr, nextRecords] = await Promise.all([
-          client.get(`/teacher/attendance-sessions/${session.id}/qr`),
+          qrRequest,
           client.get(`/teacher/attendance-sessions/${session.id}/records`),
         ]);
         if (!cancelled) {
-          setQr(nextQr);
+          if (nextQr) setQr(nextQr);
+          else if (!shouldLoadQr) setQr(null);
           setRecords(nextRecords);
           setError('');
+          if (!nextQr && shouldLoadQr) setEnded(true);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err.message ?? '刷新失败');
-          setEnded(true);
+          if (err instanceof ApiError && err.status === 410) setEnded(true);
         }
       }
     }
     refresh();
-    const timer = window.setInterval(refresh, 5000);
+    const timer = session.recordsOnly || ended ? null : window.setInterval(refresh, 5000);
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (timer) window.clearInterval(timer);
     };
   }, [session, client, ended]);
 

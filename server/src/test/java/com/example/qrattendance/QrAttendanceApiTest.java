@@ -300,6 +300,26 @@ class QrAttendanceApiTest {
   }
 
   @Test
+  void adminCanDeleteScheduleSlotReferencedByAttendanceSession() throws Exception {
+    long suffix = System.nanoTime();
+    String token = login("admin", "admin123");
+    long departmentId = createDepartment("删除排课学院-" + suffix);
+    long courseId = createCourse("删除排课课程-" + suffix, "DEL-SLOT-" + suffix, departmentId);
+    long teacherId = createTeacher("delete-slot-teacher-" + suffix, "teacher123", "删除排课教师", departmentId);
+    createAssignment(courseId, teacherId);
+    long classroomId = createClassroom("删除排课教室-" + suffix, "教学楼");
+    long slotId = createScheduleSlot(courseId, teacherId, classroomId, "周一", 1, "LECTURE");
+    long sessionId = insertSession(courseId, teacherId, slotId, "CLOSED");
+
+    mvc.perform(delete("/api/admin/courses/" + courseId + "/schedule-slots/" + slotId).header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk());
+
+    Object scheduleSlotId =
+        jdbc.queryForObject("SELECT schedule_slot_id FROM attendance_sessions WHERE id = ?", Object.class, sessionId);
+    org.junit.jupiter.api.Assertions.assertNull(scheduleSlotId);
+  }
+
+  @Test
   void adminTeacherCreateCanRepairExistingOrphanTeacherUser() throws Exception {
     long suffix = System.nanoTime();
     String token = login("admin", "admin123");
@@ -499,7 +519,8 @@ class QrAttendanceApiTest {
     mvc.perform(get("/api/teacher/courses/1").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id", is(1)))
-        .andExpect(jsonPath("$.student_count", is(2)));
+        .andExpect(jsonPath("$.student_count", is(2)))
+        .andExpect(jsonPath("$.scheduleSlots[0].classroom_name", is("教三-101")));
 
     long seedSlotId = ensureAnySlot(1L, teacherIdForCourse(1L));
     JsonNode created =

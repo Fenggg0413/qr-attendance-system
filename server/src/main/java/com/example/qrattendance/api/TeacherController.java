@@ -485,7 +485,8 @@ public class TeacherController {
   }
 
   private Map<String, Object> courseForTeacher(long courseId, long teacherId) {
-    return jdbc.queryForList(
+    Map<String, Object> course =
+        jdbc.queryForList(
             """
             SELECT co.id,
                    co.name,
@@ -508,6 +509,41 @@ public class TeacherController {
         .stream()
         .findFirst()
         .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "课程未分配给当前教师"));
+    course.put("scheduleSlots", scheduleSlotsForTeacher(courseId, teacherId));
+    return course;
+  }
+
+  private List<Map<String, Object>> scheduleSlotsForTeacher(long courseId, long teacherId) {
+    return jdbc.queryForList(
+        """
+        SELECT css.id,
+               css.course_id,
+               css.weekday,
+               css.period,
+               css.teacher_id,
+               t.name teacher_name,
+               css.classroom_id,
+               cr.name classroom_name,
+               css.course_type
+        FROM course_schedule_slots css
+        JOIN teachers t ON t.id = css.teacher_id
+        JOIN classrooms cr ON cr.id = css.classroom_id
+        WHERE css.course_id = ? AND css.teacher_id = ?
+        ORDER BY
+          CASE css.weekday
+            WHEN '周一' THEN 1
+            WHEN '周二' THEN 2
+            WHEN '周三' THEN 3
+            WHEN '周四' THEN 4
+            WHEN '周五' THEN 5
+            WHEN '周六' THEN 6
+            WHEN '周日' THEN 7
+            ELSE 8
+          END,
+          css.period
+        """,
+        courseId,
+        teacherId);
   }
 
   private Map<String, Object> sessionForTeacher(long sessionId, long teacherId) {
