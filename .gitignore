@@ -18,4 +18,5 @@ app/local.properties
 CLAUDE.md
 AGENTS.md
 .vscode/
+.vite/
 .opencode/
