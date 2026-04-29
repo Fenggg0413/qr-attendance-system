@@ -61,8 +61,8 @@ GRADLE_USER_HOME=/tmp/dynamic_qr_attendance_gradle ./gradlew :app:assembleDebug
 | 角色   | 用户名       | 密码         | 显示名     |
 | ------ | ------------ | ------------ | ---------- |
 | 管理员 | `admin`      | `admin123`   | 系统管理员 |
-| 教师   | `teacher1`   | `teacher123` | 张老师     |
-| 学生   | `student1`   | `student123` | 李同学     |
+| 教师   | `teacher1`   | `teacher123` | 刘老师     |
+| 学生   | `B22042101`  | `123456`     | 李同学     |
 
 ## API 概览
 
@@ -82,7 +82,7 @@ GRADLE_USER_HOME=/tmp/dynamic_qr_attendance_gradle ./gradlew :app:assembleDebug
 
 ### 学生 (`/api/student/**`)
 
-扫码签到、考勤记录查询、请假申请。
+仪表盘（基于课表的今日课程）、扫码签到、考勤记录查询、课表查询、请假申请、修改资料与密码。
 
 ## 运行测试
 

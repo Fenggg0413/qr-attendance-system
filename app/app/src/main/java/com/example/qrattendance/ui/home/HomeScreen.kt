@@ -74,7 +74,6 @@ fun HomeScreen(onOpenScan: () -> Unit) {
             stats = listOf(
               Format.percent(dashboard?.semesterAttendanceRate ?: 0.0) to "出勤率",
               "${dashboard?.absentCount ?: 0}" to "缺勤次数",
-              "${dashboard?.lateCount ?: 0}" to "迟到次数",
             ),
             modifier = Modifier.padding(16.dp),
           )

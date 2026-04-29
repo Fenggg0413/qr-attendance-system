@@ -10,7 +10,6 @@ enum class RecordFilter(val label: String, val status: String?) {
   All("全部", null),
   Present("出勤", "PRESENT"),
   Absent("缺勤", "ABSENT"),
-  Late("迟到", "LATE"),
 }
 
 data class RecordsUiState(

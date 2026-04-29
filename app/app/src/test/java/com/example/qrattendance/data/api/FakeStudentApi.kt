@@ -26,7 +26,7 @@ class FakeStudentApi : StudentApi {
       checkedInCount = 8,
       pendingLeaveCount = 1,
       absentCount = 2,
-      lateCount = 1,
+      lateCount = 0,
       semesterAttendanceRate = 0.9,
       todaySessions = listOf(TodaySession(id = 1, slotId = 1, period = 1, courseName = "移动开发", status = "OPEN")),
     )
@@ -48,7 +48,7 @@ class FakeStudentApi : StudentApi {
     listOf(
       AttendanceRecord(id = 1, courseName = "移动开发", status = "PRESENT", checkedInAt = "2026-04-28T08:00:00Z"),
       AttendanceRecord(id = 2, courseName = "数据结构", status = "ABSENT", checkedInAt = "2026-04-27T08:00:00Z"),
-      AttendanceRecord(id = 3, courseName = "英语", status = "LATE", checkedInAt = "2026-04-26T08:00:00Z"),
+      
     )
 
   override suspend fun checkIn(sessionId: Long, token: String) = Unit

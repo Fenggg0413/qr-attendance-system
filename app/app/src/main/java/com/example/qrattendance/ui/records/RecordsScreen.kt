@@ -36,7 +36,7 @@ import com.example.qrattendance.ui.theme.Background
 import com.example.qrattendance.ui.theme.Border
 import com.example.qrattendance.ui.theme.Primary
 import com.example.qrattendance.ui.theme.StatusGreen
-import com.example.qrattendance.ui.theme.StatusOrange
+
 import com.example.qrattendance.ui.theme.StatusPurple
 import com.example.qrattendance.ui.theme.StatusRed
 import com.example.qrattendance.ui.theme.Surface
@@ -73,17 +73,15 @@ fun RecordsScreen() {
 private fun SummaryCard(records: List<AttendanceRecord>) {
   val present = records.count { it.status == "PRESENT" }
   val absent = records.count { it.status == "ABSENT" }
-  val late = records.count { it.status == "LATE" }
   val excused = records.count { it.status == "EXCUSED" }
   val total = records.size.coerceAtLeast(1)
-  val rate = (present + late).toFloat() / total
+  val rate = (present + records.count { it.status == "LATE" }).toFloat() / total
   Column(
     Modifier.padding(16.dp).fillMaxWidth().background(Surface, RoundedCornerShape(14.dp)).border(BorderStroke(1.dp, Border), RoundedCornerShape(14.dp)).padding(16.dp),
   ) {
     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
       SummaryItem("$present", "出勤", StatusGreen)
       SummaryItem("$absent", "缺勤", StatusRed)
-      SummaryItem("$late", "迟到", StatusOrange)
       SummaryItem("$excused", "请假", StatusPurple)
     }
     Text("出勤率 ${Format.percent(rate.toDouble())}", color = TextSecondary, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
