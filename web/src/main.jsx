@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   BarChart3,
@@ -1580,7 +1580,12 @@ function TeacherLeaveRequests({ client, onAuthExpired }) {
 function AdminPortal({ session, view, setBreadcrumb, logout }) {
   const client = useMemo(() => api.withToken(session.token), [session.token]);
   const config = adminResources[view];
-  const title = view === 'dashboard' ? '数据总览' : view === 'courses' ? '课程管理' : view === 'departments' ? '院系管理' : config?.title ?? '后台管理';
+  const titles = {
+    dashboard: '数据总览',
+    courses: '课程管理',
+    departments: '院系管理',
+  };
+  const title = titles[view] ?? config?.title ?? '后台管理';
 
   useEffect(() => {
     setBreadcrumb(['首页', title]);
@@ -1747,26 +1752,22 @@ function CourseAttendanceTable({ rows }) {
 }
 
 function AbsenceWarnings({ rows }) {
-  const sortedRows = useMemo(
-    () => [...rows].sort((a, b) => Number(b.absent_count ?? 0) - Number(a.absent_count ?? 0)),
-    [rows],
-  );
   return (
     <section className="panel">
       <div className="panelHead">
         <h2>预警提醒</h2>
-        {sortedRows.length > 0 && <span className="panelCount">共 {sortedRows.length} 条预警</span>}
+        {rows.length > 0 && <span className="panelCount">共 {rows.length} 条预警</span>}
       </div>
       <div className="warningList">
-        {sortedRows.map((row) => (
+        {rows.map((row) => (
           <div className="warningItem" key={row.student_id ?? row.student_no ?? row.student_name}>
             <span className="avatarMini warningAvatar">{String(row.student_name ?? '学').slice(0, 1)}</span>
             <strong>{row.student_name}</strong>
             <span>{row.student_no ?? '未设置学号'}</span>
-            <em>缺勤 {Number(row.absent_count ?? 0)} 次</em>
+            <span className="warningCount">缺勤 {Number(row.absent_count ?? 0)} 次</span>
           </div>
         ))}
-        {!sortedRows.length && <div className="empty">暂无预警</div>}
+        {!rows.length && <div className="empty">暂无预警</div>}
       </div>
     </section>
   );
@@ -1785,12 +1786,10 @@ function AdminCoursesPage({ client }) {
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [courseSortColumn, setCourseSortColumn] = useState(null);
-  const [courseSortDirection, setCourseSortDirection] = useState(null);
 
   const termOptions = useMemo(() => ['全部学期', ...Array.from(new Set(courses.map((course) => course.term).filter(Boolean)))], [courses]);
   const filteredCourses = useMemo(() => filterAdminCourses(courses, appliedFilters), [appliedFilters, courses]);
-  const sortedCourses = useMemo(() => sortRows(filteredCourses, courseSortColumn, courseSortDirection), [filteredCourses, courseSortColumn, courseSortDirection]);
+  const { sortedRows: sortedCourses, sortColumn: courseSortColumn, sortDirection: courseSortDirection, onSort: handleCourseSort } = useTableSort(filteredCourses);
   const totalPages = Math.max(1, Math.ceil(sortedCourses.length / pageSize));
   const pageCourses = sortedCourses.slice((page - 1) * pageSize, page * pageSize);
 
@@ -1857,12 +1856,6 @@ function AdminCoursesPage({ client }) {
   function openCreateDialog() {
     setForm((value) => ({ ...value, departmentId: value.departmentId || (departments[0] ? String(departments[0].id) : '') }));
     setDialogOpen(true);
-  }
-
-  function handleCourseSort(column) {
-    const next = handleColumnSort(column, courseSortColumn, courseSortDirection);
-    setCourseSortColumn(next.sortColumn);
-    setCourseSortDirection(next.sortDirection);
   }
 
   if (selected && detail) {
@@ -2607,8 +2600,6 @@ function AdminResourcePage({ client, config }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [sortColumn, setSortColumn] = useState(null);
-  const [sortDirection, setSortDirection] = useState(null);
 
   const grades = ['全部年级', ...Array.from(new Set(items.map((item) => item.grade).filter(Boolean)))];
   const classroomBuildings = ['教一', '教二', '教三', '教四'];
@@ -2637,7 +2628,7 @@ function AdminResourcePage({ client, config }) {
       return inDepartment;
     });
   }, [departmentFilter, isStudentResource, isTeacherResource, isClassroomResource, items, query, studentAppliedFilters, teacherAppliedFilters, classroomAppliedFilters]);
-  const sortedItems = useMemo(() => sortRows(filteredItems, sortColumn, sortDirection), [filteredItems, sortColumn, sortDirection]);
+  const { sortedRows: sortedItems, sortColumn, sortDirection, onSort, resetSort } = useTableSort(filteredItems);
   const studentTotalPages = Math.max(1, Math.ceil(sortedItems.length / studentPageSize));
   const teacherTotalPages = Math.max(1, Math.ceil(sortedItems.length / teacherPageSize));
   const classroomTotalPages = Math.max(1, Math.ceil(sortedItems.length / classroomPageSize));
@@ -2678,18 +2669,11 @@ function AdminResourcePage({ client, config }) {
     setClassroomPage(1);
     setClassroomDraftFilters({ query: '', building: '全部教学楼' });
     setClassroomAppliedFilters({ query: '', building: '全部教学楼' });
-    setSortColumn(null);
-    setSortDirection(null);
+    resetSort();
     setMessage('');
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, config]);
-
-  function onSort(column) {
-    const next = handleColumnSort(column, sortColumn, sortDirection);
-    setSortColumn(next.sortColumn);
-    setSortDirection(next.sortDirection);
-  }
 
   useEffect(() => {
     setStudentPage((current) => Math.min(current, studentTotalPages));
@@ -3363,8 +3347,6 @@ function AdminDepartmentsPage({ client }) {
   const [appliedFilters, setAppliedFilters] = useState({ query: '' });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [deptSortColumn, setDeptSortColumn] = useState(null);
-  const [deptSortDirection, setDeptSortDirection] = useState(null);
 
   const filteredDepartments = useMemo(() => {
     const query = appliedFilters.query.trim().toLowerCase();
@@ -3374,7 +3356,7 @@ function AdminDepartmentsPage({ client }) {
     );
   }, [departments, appliedFilters]);
 
-  const sortedDepartments = useMemo(() => sortRows(filteredDepartments, deptSortColumn, deptSortDirection), [filteredDepartments, deptSortColumn, deptSortDirection]);
+  const { sortedRows: sortedDepartments, sortColumn: deptSortColumn, sortDirection: deptSortDirection, onSort: handleDeptSort } = useTableSort(filteredDepartments);
 
   const totalPages = Math.max(1, Math.ceil(sortedDepartments.length / pageSize));
   const pageDepartments = sortedDepartments.slice((page - 1) * pageSize, page * pageSize);
@@ -3465,12 +3447,6 @@ function AdminDepartmentsPage({ client }) {
     setDraftFilters(empty);
     setAppliedFilters(empty);
     setPage(1);
-  }
-
-  function handleDeptSort(column) {
-    const next = handleColumnSort(column, deptSortColumn, deptSortDirection);
-    setDeptSortColumn(next.sortColumn);
-    setDeptSortDirection(next.sortDirection);
   }
 
   return (
@@ -3632,6 +3608,24 @@ function sortableAriaSort(column, sortColumn, sortDirection) {
   return sortDirection === 'asc' ? 'ascending' : 'descending';
 }
 
+function useTableSort(rows) {
+  const [sort, setSort] = useState({ sortColumn: null, sortDirection: null });
+  const sortedRows = useMemo(() => sortRows(rows, sort.sortColumn, sort.sortDirection), [rows, sort.sortColumn, sort.sortDirection]);
+  const onSort = useCallback((column) => {
+    setSort((current) => handleColumnSort(column, current.sortColumn, current.sortDirection));
+  }, []);
+  const resetSort = useCallback(() => {
+    setSort({ sortColumn: null, sortDirection: null });
+  }, []);
+  return {
+    sortedRows,
+    sortColumn: sort.sortColumn,
+    sortDirection: sort.sortDirection,
+    onSort,
+    resetSort,
+  };
+}
+
 function SortableTableHeader({ label, column, sortColumn, sortDirection, onSort }) {
   const isSorted = sortColumn === column;
   return (
@@ -3766,9 +3760,11 @@ function sortRows(rows, column, direction) {
   return [...rows].sort((a, b) => {
     const aVal = a[column] ?? '';
     const bVal = b[column] ?? '';
-    const aNum = Number(aVal);
-    const bNum = Number(bVal);
-    if (!isNaN(aNum) && !isNaN(bNum) && aVal !== '' && bVal !== '') {
+    const aText = String(aVal).trim();
+    const bText = String(bVal).trim();
+    const aNum = Number(aText);
+    const bNum = Number(bText);
+    if (aText !== '' && bText !== '' && Number.isFinite(aNum) && Number.isFinite(bNum)) {
       return direction === 'asc' ? aNum - bNum : bNum - aNum;
     }
     const cmp = String(aVal).localeCompare(String(bVal), 'zh-Hans-CN');

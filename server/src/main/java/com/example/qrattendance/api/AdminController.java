@@ -28,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/admin")
 public class AdminController {
   private static final String DEFAULT_TEACHER_PASSWORD = "123456";
+  private static final int ABSENCE_WARNING_THRESHOLD = 3;
 
   private final JdbcTemplate jdbc;
   private final TransactionTemplate transactions;
@@ -57,23 +58,6 @@ public class AdminController {
             GROUP BY co.id, co.name
             ORDER BY co.id
             """);
-    List<Map<String, Object>> activities =
-        jdbc.queryForList(
-            """
-            SELECT ar.id,
-                   ar.session_id,
-                   co.name course_name,
-                   s.name student_name,
-                   s.student_no,
-                   ar.status,
-                   COALESCE(ar.checked_in_at, se.started_at) checked_in_at
-            FROM attendance_records ar
-            JOIN students s ON s.id = ar.student_id
-            JOIN attendance_sessions se ON se.id = ar.session_id
-            JOIN courses co ON co.id = se.course_id
-            ORDER BY COALESCE(ar.checked_in_at, se.started_at) DESC, ar.id DESC
-            LIMIT 8
-            """);
     List<Map<String, Object>> absenceWarnings =
         jdbc.queryForList(
             """
@@ -82,12 +66,17 @@ public class AdminController {
                    s.student_no,
                    COUNT(*) absent_count
             FROM attendance_records ar
+            JOIN attendance_sessions se ON se.id = ar.session_id
+            JOIN course_assignments ca ON ca.course_id = se.course_id AND ca.teacher_id = se.teacher_id
             JOIN students s ON s.id = ar.student_id
             WHERE ar.status = 'ABSENT'
+              AND ca.term = ?
             GROUP BY s.id, s.name, s.student_no
-            HAVING COUNT(*) > 3
+            HAVING COUNT(*) > ?
             ORDER BY absent_count DESC, s.id ASC
-            """);
+            """,
+            currentTerm(),
+            ABSENCE_WARNING_THRESHOLD);
     String today = LocalDate.now(ZoneId.systemDefault()).toString();
     Map<String, Object> todayCounts =
         firstOrZero(
@@ -126,8 +115,7 @@ public class AdminController {
         "trend", sevenDayTrend(),
         "distribution", distributionWithRate,
         "courseAttendance", courseAttendance,
-        "absenceWarnings", absenceWarnings,
-        "recentActivities", activities);
+        "absenceWarnings", absenceWarnings);
   }
 
   @GetMapping("/departments")
@@ -1112,6 +1100,15 @@ public class AdminController {
 
   private Map<String, Object> firstOrZero(String sql, Object... args) {
     return jdbc.queryForList(sql, args).stream().findFirst().orElse(Map.of());
+  }
+
+  private String currentTerm() {
+    LocalDate today = LocalDate.now(ZoneId.systemDefault());
+    int year = today.getYear();
+    if (today.getMonthValue() >= 8) {
+      return year + "-" + (year + 1) + "学年 秋季学期";
+    }
+    return (year - 1) + "-" + year + "学年 春季学期";
   }
 
   private List<Map<String, Object>> sevenDayTrend() {

@@ -910,17 +910,11 @@ th {
 }
 
 .dashboardCharts,
+.dashboardLower,
 .courseDetailGrid {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
   gap: 18px;
-}
-
-.dashboardLower {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
-  gap: 18px;
-  align-items: stretch;
 }
 
 .dashboardLower > .panel {
@@ -1031,13 +1025,7 @@ th {
   border-radius: 50%;
 }
 
-.courseAttendanceRows {
-  display: grid;
-  gap: 12px;
-  max-height: 420px;
-  overflow-y: auto;
-}
-
+.courseAttendanceRows,
 .warningList {
   display: grid;
   gap: 12px;
@@ -1099,7 +1087,7 @@ th {
   font-size: 13px;
 }
 
-.warningItem em {
+.warningCount {
   border-radius: 999px;
   padding: 4px 9px;
   color: #b91c1c;

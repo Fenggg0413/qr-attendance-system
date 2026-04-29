@@ -15,6 +15,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,7 +113,7 @@ class QrAttendanceApiTest {
         sessionId,
         studentId,
         "LATE",
-        Instant.now().toString(),
+        todayAtHour(8).toString(),
         "QR");
 
     mvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer " + adminToken))
@@ -124,7 +125,7 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$.trend.length()", is(7)))
         .andExpect(jsonPath("$.courseAttendance[?(@.course_name == '仪表盘课程-" + suffix + "')].total").value(org.hamcrest.Matchers.hasItem(1)))
         .andExpect(jsonPath("$.courseAttendance[?(@.course_name == '仪表盘课程-" + suffix + "')].late").value(org.hamcrest.Matchers.hasItem(1)))
-        .andExpect(jsonPath("$.recentActivities[?(@.student_name == '仪表盘学生')].status").value(org.hamcrest.Matchers.hasItem("LATE")));
+        .andExpect(jsonPath("$.recentActivities").doesNotExist());
   }
 
   @Test
@@ -134,9 +135,13 @@ class QrAttendanceApiTest {
     long departmentId = createDepartment("预警学院-" + suffix);
     long teacherId = createTeacher("teacher-warning-" + suffix, "teacher123", "预警老师", departmentId);
     long courseId = createCourse("预警课程-" + suffix, "WARN-" + suffix, departmentId);
+    createAssignment(courseId, teacherId, currentTerm());
+    long oldCourseId = createCourse("历史预警课程-" + suffix, "WARN-OLD-" + suffix, departmentId);
+    createAssignment(oldCourseId, teacherId, "2024-2025学年 秋季学期");
     long highRiskStudentId = createStudent("warning-high-" + suffix, "高预警学生", "WARN-HIGH-" + suffix, departmentId);
     long mediumRiskStudentId = createStudent("warning-medium-" + suffix, "中预警学生", "WARN-MED-" + suffix, departmentId);
     long lowRiskStudentId = createStudent("warning-low-" + suffix, "低风险学生", "WARN-LOW-" + suffix, departmentId);
+    long oldRiskStudentId = createStudent("warning-old-" + suffix, "历史风险学生", "WARN-OLD-STUDENT-" + suffix, departmentId);
 
     for (int i = 0; i < 6; i += 1) {
       insertRecord(insertSession(courseId, teacherId, "CLOSED"), highRiskStudentId, "ABSENT");
@@ -147,6 +152,9 @@ class QrAttendanceApiTest {
     for (int i = 0; i < 3; i += 1) {
       insertRecord(insertSession(courseId, teacherId, "CLOSED"), lowRiskStudentId, "ABSENT");
     }
+    for (int i = 0; i < 5; i += 1) {
+      insertRecord(insertSession(oldCourseId, teacherId, "CLOSED"), oldRiskStudentId, "ABSENT");
+    }
 
     mvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer " + adminToken))
         .andExpect(status().isOk())
@@ -154,7 +162,8 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$.absenceWarnings[0].absent_count", is(6)))
         .andExpect(jsonPath("$.absenceWarnings[1].student_name", is("中预警学生")))
         .andExpect(jsonPath("$.absenceWarnings[1].absent_count", is(4)))
-        .andExpect(jsonPath("$.absenceWarnings[?(@.student_no == 'WARN-LOW-" + suffix + "')]").value(org.hamcrest.Matchers.empty()));
+        .andExpect(jsonPath("$.absenceWarnings[?(@.student_no == 'WARN-LOW-" + suffix + "')]").value(org.hamcrest.Matchers.empty()))
+        .andExpect(jsonPath("$.absenceWarnings[?(@.student_no == 'WARN-OLD-STUDENT-" + suffix + "')]").value(org.hamcrest.Matchers.empty()));
   }
 
   @Test
@@ -1284,6 +1293,20 @@ class QrAttendanceApiTest {
     long userId = insertUser(username, password, "TEACHER", name);
     jdbc.update("INSERT INTO teachers(user_id, name, department_id) VALUES (?, ?, ?)", userId, name, departmentId);
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+  }
+
+  private Instant todayAtHour(int hour) {
+    ZoneId zone = ZoneId.systemDefault();
+    return LocalDate.now(zone).atStartOfDay(zone).plusHours(hour).toInstant();
+  }
+
+  private String currentTerm() {
+    LocalDate today = LocalDate.now(ZoneId.systemDefault());
+    int year = today.getYear();
+    if (today.getMonthValue() >= 8) {
+      return year + "-" + (year + 1) + "学年 秋季学期";
+    }
+    return (year - 1) + "-" + year + "学年 春季学期";
   }
 
   private void enroll(long assignmentId, long studentId) {

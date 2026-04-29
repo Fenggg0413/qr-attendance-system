@@ -372,7 +372,7 @@ test('teacher reviews student leave declarations from the new portal entry', asy
 test('admin dashboard and simplified navigation render real overview data', async () => {
   mockAdminApi();
 
-  render(<App />);
+  const { container } = render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
@@ -393,6 +393,8 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   expect(screen.getByText('预警提醒')).toBeInTheDocument();
   expect(screen.getByText('预警学生')).toBeInTheDocument();
   expect(screen.getByText('缺勤 5 次')).toBeInTheDocument();
+  expect(container.querySelector('.warningCount')).toHaveTextContent('缺勤 5 次');
+  expect(container.querySelector('.warningItem em')).toBeNull();
   expect(screen.queryByText('最近活动记录')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '标记考勤' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '添加学生' })).not.toBeInTheDocument();
@@ -640,6 +642,10 @@ test('admin course management uses searchable table and modal creation', async (
   screen.getByRole('button', { name: '授课教师' }).focus();
   await userEvent.keyboard('{Enter}');
   expect(screen.getByRole('columnheader', { name: '授课教师' })).toHaveAttribute('aria-sort', 'ascending');
+  await userEvent.click(screen.getByRole('button', { name: '授课教师' }));
+  expect(screen.getByRole('columnheader', { name: '授课教师' })).toHaveAttribute('aria-sort', 'descending');
+  await userEvent.click(screen.getByRole('button', { name: '授课教师' }));
+  expect(screen.getByRole('columnheader', { name: '授课教师' })).toHaveAttribute('aria-sort', 'none');
   expect(Array.from(container.querySelectorAll('.courseDataTable tbody tr')).map((row) => row.querySelector('td')?.textContent)).toEqual(['1', '2']);
   expect(screen.getByText('李老师')).toBeInTheDocument();
   expect(screen.getAllByText('2026 春季').length).toBeGreaterThan(0);
@@ -928,9 +934,6 @@ function mockAdminApi(options = {}) {
           { course_id: 2, course_name: '生成式 AI', present: 1, total: 2, absent: 1, late: 0 },
         ],
         absenceWarnings,
-        recentActivities: [
-          { id: 1, student_name: '课程学生', course_name: '生成式 AI', checked_in_at: '2026-04-26T08:00:00Z', status: 'PRESENT' },
-        ],
       });
     }
     if (url.endsWith('/admin/departments')) return response(departments);
