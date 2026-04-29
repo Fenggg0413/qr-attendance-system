@@ -501,15 +501,17 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$.id", is(1)))
         .andExpect(jsonPath("$.student_count", is(2)));
 
+    long seedSlotId = ensureAnySlot(1L, teacherIdForCourse(1L));
     JsonNode created =
         mapper.readTree(
             mvc.perform(
-                    post("/api/teacher/courses/1/attendance-sessions")
+                    post("/api/teacher/attendance-sessions/makeup")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("durationMinutes", 5, "method", "CODE"))))
+                        .content(json(Map.of("slotId", seedSlotId, "reason", "课堂测试", "durationMinutes", 5, "method", "CODE"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.method", is("CODE")))
+                .andExpect(jsonPath("$.kind", is("MAKEUP")))
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
@@ -945,6 +947,140 @@ class QrAttendanceApiTest {
         .andExpect(status().isNotFound());
   }
 
+  @Test
+  void freeFormSessionCreateEndpointIsRemoved() throws Exception {
+    String token = login("teacher1", "teacher123");
+    mvc.perform(
+            post("/api/teacher/courses/1/attendance-sessions")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("durationMinutes", 5))))
+        .andExpect(status().isMethodNotAllowed());
+  }
+
+  @Test
+  void slotSessionRejectsOutsideTimeWindow() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("时间窗学院-" + suffix);
+    long teacherId = createTeacher("teacher-window-" + suffix, "teacher123", "窗口老师", departmentId);
+    long courseId = createCourse("窗口课-" + suffix, "WIN-" + suffix, departmentId);
+    createAssignment(courseId, teacherId);
+    long classroomId = createClassroom("窗口教室-" + suffix, "教学楼");
+    long slotId = createScheduleSlot(courseId, teacherId, classroomId, otherWeekday(), 1, "LECTURE");
+
+    String token = login("teacher-window-" + suffix, "teacher123");
+    mvc.perform(
+            post("/api/teacher/schedule-slots/" + slotId + "/attendance-sessions")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("method", "QR"))))
+        .andExpect(status().isUnprocessableEntity())
+        .andExpect(jsonPath("$.message", containsString("排课日")));
+  }
+
+  @Test
+  void slotSessionRejectsForeignTeacherSlot() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("跨教师学院-" + suffix);
+    long ownerId = createTeacher("teacher-owner-" + suffix, "teacher123", "拥有老师", departmentId);
+    createTeacher("teacher-foreign-" + suffix, "teacher123", "外来老师", departmentId);
+    long courseId = createCourse("外来课-" + suffix, "FOR-" + suffix, departmentId);
+    createAssignment(courseId, ownerId);
+    long classroomId = createClassroom("外来教室-" + suffix, "教学楼");
+    long slotId = createScheduleSlot(courseId, ownerId, classroomId, "周一", 1, "LECTURE");
+
+    String foreign = login("teacher-foreign-" + suffix, "teacher123");
+    mvc.perform(
+            post("/api/teacher/schedule-slots/" + slotId + "/attendance-sessions")
+                .header("Authorization", "Bearer " + foreign)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("method", "QR"))))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void makeupSessionRequiresReasonAndPersistsKind() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("补考勤学院-" + suffix);
+    long teacherId = createTeacher("teacher-makeup-" + suffix, "teacher123", "补考勤老师", departmentId);
+    long courseId = createCourse("补考勤课-" + suffix, "MK-" + suffix, departmentId);
+    createAssignment(courseId, teacherId);
+    long classroomId = createClassroom("补考勤教室-" + suffix, "教学楼");
+    long slotId = createScheduleSlot(courseId, teacherId, classroomId, "周一", 1, "LECTURE");
+
+    String token = login("teacher-makeup-" + suffix, "teacher123");
+    mvc.perform(
+            post("/api/teacher/attendance-sessions/makeup")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("slotId", slotId, "reason", ""))))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.message", containsString("理由")));
+
+    JsonNode created =
+        mapper.readTree(
+            mvc.perform(
+                    post("/api/teacher/attendance-sessions/makeup")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("slotId", slotId, "reason", "调课补签"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kind", is("MAKEUP")))
+                .andExpect(jsonPath("$.makeupReason", is("调课补签")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+
+    Map<String, Object> row =
+        jdbc.queryForMap(
+            "SELECT schedule_slot_id, kind, makeup_reason FROM attendance_sessions WHERE id = ?",
+            created.get("id").asLong());
+    org.junit.jupiter.api.Assertions.assertEquals(slotId, ((Number) row.get("schedule_slot_id")).longValue());
+    org.junit.jupiter.api.Assertions.assertEquals("MAKEUP", row.get("kind"));
+    org.junit.jupiter.api.Assertions.assertEquals("调课补签", row.get("makeup_reason"));
+  }
+
+  @Test
+  void teacherTodayMergesContiguousPeriodsAndSurfacesActiveSession() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("今日合并学院-" + suffix);
+    long teacherId = createTeacher("teacher-today-" + suffix, "teacher123", "今日老师", departmentId);
+    long courseId = createCourse("今日课-" + suffix, "TODAY-" + suffix, departmentId);
+    createAssignment(courseId, teacherId);
+    long classroomId = createClassroom("今日教室-" + suffix, "教学楼");
+    String today = todayWeekday();
+    long slot1 = createScheduleSlot(courseId, teacherId, classroomId, today, 1, "LECTURE");
+    long slot2 = createScheduleSlot(courseId, teacherId, classroomId, today, 2, "LECTURE");
+
+    long sessionId = insertSession(courseId, teacherId, slot1, "OPEN");
+
+    String token = login("teacher-today-" + suffix, "teacher123");
+    mvc.perform(get("/api/teacher/today").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.slotId == " + slot1 + ")].periodEnd").value(org.hamcrest.Matchers.hasItem(2)))
+        .andExpect(jsonPath("$[?(@.slotId == " + slot1 + ")].session.id").value(org.hamcrest.Matchers.hasItem((int) sessionId)))
+        .andExpect(jsonPath("$[?(@.slotId == " + slot2 + ")]").isEmpty());
+  }
+
+  @Test
+  void teacherTodayDoesNotMergeAcrossLunchGap() throws Exception {
+    long suffix = System.nanoTime();
+    long departmentId = createDepartment("午休不合并学院-" + suffix);
+    long teacherId = createTeacher("teacher-lunch-" + suffix, "teacher123", "午休老师", departmentId);
+    long courseId = createCourse("午休课-" + suffix, "LUNCH-" + suffix, departmentId);
+    createAssignment(courseId, teacherId);
+    long classroomId = createClassroom("午休教室-" + suffix, "教学楼");
+    String today = todayWeekday();
+    long morning = createScheduleSlot(courseId, teacherId, classroomId, today, 5, "LECTURE");
+    long afternoon = createScheduleSlot(courseId, teacherId, classroomId, today, 6, "LECTURE");
+
+    String token = login("teacher-lunch-" + suffix, "teacher123");
+    mvc.perform(get("/api/teacher/today").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[?(@.slotId == " + morning + ")].periodEnd").value(org.hamcrest.Matchers.hasItem(5)))
+        .andExpect(jsonPath("$[?(@.slotId == " + afternoon + ")].periodEnd").value(org.hamcrest.Matchers.hasItem(6)));
+  }
+
   private String login(String username, String password) throws Exception {
     JsonNode node =
         mapper.readTree(
@@ -961,18 +1097,45 @@ class QrAttendanceApiTest {
   }
 
   private long createSession(String teacherToken, long courseId) throws Exception {
+    long teacherId = teacherIdForCourse(courseId);
+    long slotId = ensureAnySlot(courseId, teacherId);
     JsonNode node =
         mapper.readTree(
             mvc.perform(
-                    post("/api/teacher/courses/" + courseId + "/attendance-sessions")
+                    post("/api/teacher/attendance-sessions/makeup")
                         .header("Authorization", "Bearer " + teacherToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(json(Map.of("durationMinutes", 5))))
+                        .content(json(Map.of("slotId", slotId, "reason", "测试用例", "durationMinutes", 5))))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString());
     return node.get("id").asLong();
+  }
+
+  private long teacherIdForCourse(long courseId) {
+    return jdbc.queryForObject(
+        "SELECT teacher_id FROM course_assignments WHERE course_id = ? ORDER BY id LIMIT 1",
+        Long.class,
+        courseId);
+  }
+
+  private long ensureAnySlot(long courseId, long teacherId) {
+    Long existing =
+        jdbc.query(
+            "SELECT id FROM course_schedule_slots WHERE course_id = ? AND teacher_id = ? ORDER BY id LIMIT 1",
+            rs -> rs.next() ? rs.getLong("id") : null,
+            courseId,
+            teacherId);
+    if (existing != null) return existing;
+    long classroomId =
+        jdbc.query(
+            "SELECT id FROM classrooms ORDER BY id LIMIT 1",
+            rs -> rs.next() ? rs.getLong("id") : 0L);
+    if (classroomId == 0L) {
+      classroomId = createClassroom("测试教室-" + System.nanoTime(), "测试楼");
+    }
+    return createScheduleSlot(courseId, teacherId, classroomId, "周一", 1, "LECTURE");
   }
 
   private long createClass(String name, String grade) {
@@ -1034,14 +1197,25 @@ class QrAttendanceApiTest {
   }
 
   private long insertSession(long courseId, long teacherId, String status) {
+    long slotId = ensureAnySlot(courseId, teacherId);
+    return insertSession(courseId, teacherId, slotId, status);
+  }
+
+  private long insertSession(long courseId, long teacherId, long slotId, String status) {
+    Integer periodEnd =
+        jdbc.queryForObject(
+            "SELECT period FROM course_schedule_slots WHERE id = ?", Integer.class, slotId);
     jdbc.update(
-        "INSERT INTO attendance_sessions(course_id, teacher_id, started_at, ends_at, status, method) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO attendance_sessions(course_id, teacher_id, started_at, ends_at, status, method, schedule_slot_id, period_end, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         courseId,
         teacherId,
         Instant.now().minusSeconds(60).toString(),
         Instant.now().plusSeconds(600).toString(),
         status,
-        "QR");
+        "QR",
+        slotId,
+        periodEnd,
+        "SCHEDULED");
     return jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
   }
 

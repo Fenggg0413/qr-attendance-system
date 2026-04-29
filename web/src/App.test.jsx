@@ -48,7 +48,7 @@ test('login protects the portal until credentials are submitted', async () => {
   expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
 
-  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
   expect(screen.getByText(/张老师/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '仪表盘' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '申报审核' })).toBeInTheDocument();
@@ -78,7 +78,7 @@ test('teacher can filter courses and open detail tabs', async () => {
 
   const { container } = render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
-  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
@@ -87,7 +87,7 @@ test('teacher can filter courses and open detail tabs', async () => {
   expect(within(summaryStrip).queryByText(/学生/)).not.toBeInTheDocument();
   expect(container.querySelector('.courseMeta')).not.toBeInTheDocument();
   const firstCourseCard = container.querySelector('.courseCard');
-  expect(within(firstCourseCard).getAllByRole('button').map((button) => button.textContent)).toEqual(['查看详情', '发起考勤']);
+  expect(within(firstCourseCard).getAllByRole('button').map((button) => button.textContent)).toEqual(['查看详情']);
 
   await userEvent.type(screen.getByPlaceholderText('搜索课程名称、代码或班级'), 'Data');
   expect(screen.getByText('Data Structure')).toBeInTheDocument();
@@ -97,6 +97,7 @@ test('teacher can filter courses and open detail tabs', async () => {
   await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]);
 
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
+  expect(screen.queryByRole('button', { name: /发起考勤/ })).not.toBeInTheDocument();
   expect(screen.getByRole('tab', { name: '考勤记录' })).toHaveAttribute('aria-selected', 'true');
   await userEvent.click(screen.getByRole('tab', { name: '学生名单' }));
   await waitFor(() => expect(screen.getByDisplayValue('需要关注')).toBeInTheDocument());
@@ -117,36 +118,120 @@ test('admin course detail action is centered on the right side of the card', () 
   expect(css).toMatch(/\.adminCourseCard\s+\.ghost\s*\{[^}]*align-self:\s*center;?[^}]*justify-self:\s*end;?[^}]*\}/);
 });
 
-test('teacher can start attendance and view record drawer', async () => {
+test('teacher starts attendance from today board by slot and ends it from live modal', async () => {
   mockTeacherApi();
-  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
 
   render(<App />);
   await userEvent.click(screen.getByRole('button', { name: '登录' }));
-  await waitFor(() => expect(screen.getByRole('heading', { name: '我的课程' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
-  await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
-  await waitFor(() => expect(screen.getByRole('heading', { name: 'Java Web 开发' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('button', { name: /开始考勤/ })).toBeInTheDocument());
+  expect(screen.getByText('第 1-2 节 · 08:00-09:35')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: /开始考勤/ }));
 
-  await userEvent.click(screen.getAllByRole('button', { name: '发起考勤' })[0]);
-  expect(screen.getByRole('dialog', { name: '发起考勤' })).toBeInTheDocument();
-  expect(screen.queryByLabelText('数字验证码')).not.toBeInTheDocument();
-  expect(screen.queryByLabelText('手动点名')).not.toBeInTheDocument();
-  expect(screen.getByText('二维码考勤')).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: '立即开始' }));
+  await waitFor(() =>
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/teacher/schedule-slots/11/attendance-sessions',
+      expect.objectContaining({ method: 'POST' }),
+    ),
+  );
+  const startCall = global.fetch.mock.calls.find(
+    ([url, options]) => url.endsWith('/teacher/schedule-slots/11/attendance-sessions') && options?.method === 'POST',
+  );
+  expect(JSON.parse(startCall[1].body)).toEqual({ method: 'QR' });
 
   await waitFor(() => expect(screen.getByText('动态签到码')).toBeInTheDocument());
-  expect(JSON.parse(global.fetch.mock.calls.find(([url, options]) => url.endsWith('/teacher/courses/1/attendance-sessions') && options?.method === 'POST')[1].body).method).toBe('QR');
   await waitFor(() => expect(screen.getByText('李同学')).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '提前结束考勤' }));
   await waitFor(() => expect(screen.getByText('考勤已结束')).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '隐藏窗口，考勤继续' }));
+  await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
   await userEvent.click(screen.getAllByRole('button', { name: '查看详情' })[0]);
   await waitFor(() => expect(screen.getByRole('button', { name: '查看明细' })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '查看明细' }));
   const drawer = screen.getByRole('dialog', { name: /考勤明细/ });
   expect(within(drawer).getByText('王同学')).toBeInTheDocument();
+});
+
+test('today board disables CTA before period and shows running countdown for active session', async () => {
+  mockTeacherApi({
+    todayCards: [
+      {
+        slotId: 11,
+        courseId: 1,
+        courseName: 'Java Web 开发',
+        classroomName: '教三-101',
+        className: '软件 2204',
+        periodStart: 3,
+        periodEnd: 3,
+        startTime: '2099-04-29T09:50:00+08:00',
+        endTime: '2099-04-29T10:35:00+08:00',
+        phase: 'BEFORE',
+        session: null,
+      },
+      {
+        slotId: 12,
+        courseId: 1,
+        courseName: 'Data Structure',
+        classroomName: '教三-202',
+        className: '软件 2204',
+        periodStart: 1,
+        periodEnd: 2,
+        startTime: '2099-04-29T08:00:00+08:00',
+        endTime: '2099-04-29T09:35:00+08:00',
+        phase: 'RUNNING',
+        session: { id: 10, status: 'OPEN', method: 'QR', endsAt: '2099-04-29T09:35:00+08:00', ends_at: '2099-04-29T09:35:00+08:00', presentCount: 5, totalCount: 30 },
+      },
+    ],
+  });
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
+
+  await waitFor(() => expect(screen.getByText(/距上课/)).toBeInTheDocument());
+  expect(screen.getByText(/距上课/).closest('button')).toBeDisabled();
+  expect(screen.getByText(/进行中 · 剩/)).toBeInTheDocument();
+  expect(screen.getByText(/已签到 5 \/ 30/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: '查看二维码' }));
+  await waitFor(() => expect(screen.getByText('动态签到码')).toBeInTheDocument());
+});
+
+test('makeup dialog enforces reason and posts to makeup endpoint', async () => {
+  mockTeacherApi({ todayCards: [] });
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
+
+  await userEvent.click(screen.getByRole('button', { name: /补考勤/ }));
+  const dialog = await screen.findByRole('dialog', { name: '补考勤' });
+  await waitFor(() => expect(within(dialog).getByRole('option', { name: /周一 第 1 节/ })).toBeInTheDocument());
+
+  await userEvent.click(within(dialog).getByRole('button', { name: '提交补考勤' }));
+  expect(within(dialog).getByText('请填写补考勤理由')).toBeInTheDocument();
+
+  await userEvent.type(within(dialog).getByPlaceholderText(/调到本日/), '调课到本日');
+  await userEvent.click(within(dialog).getByRole('button', { name: '提交补考勤' }));
+
+  await waitFor(() =>
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/teacher/attendance-sessions/makeup',
+      expect.objectContaining({ method: 'POST' }),
+    ),
+  );
+  const call = global.fetch.mock.calls.find(
+    ([url, options]) => url.endsWith('/teacher/attendance-sessions/makeup') && options?.method === 'POST',
+  );
+  const body = JSON.parse(call[1].body);
+  expect(body.slotId).toBe(11);
+  expect(body.reason).toBe('调课到本日');
+  expect(body.durationMinutes).toBe(30);
+
+  await waitFor(() => expect(screen.getByText('动态签到码')).toBeInTheDocument());
 });
 
 test('profile form validates password confirmation and logout returns to login', async () => {
@@ -563,6 +648,23 @@ test('admin teacher management still supports editing basic data', async () => {
 });
 
 function mockTeacherApi(overrides = {}) {
+  const defaultTodayCards = [
+    {
+      slotId: 11,
+      courseId: 1,
+      courseName: 'Java Web 开发',
+      courseCode: 'JAVA-WEB-01',
+      classroomName: '教三-101',
+      className: '软件 2204',
+      courseType: 'LECTURE',
+      periodStart: 1,
+      periodEnd: 2,
+      startTime: '2099-04-29T08:00:00+08:00',
+      endTime: '2099-04-29T09:35:00+08:00',
+      phase: 'OPENABLE',
+      session: null,
+    },
+  ];
   const leaveRequests = overrides.leaveRequests ?? {
     PENDING: [
       {
@@ -612,21 +714,29 @@ function mockTeacherApi(overrides = {}) {
       }
       return response(leaveRequests[filter] ?? []);
     }
-    if (url.endsWith('/teacher/courses') && method === 'GET') return response(courses);
-    if (url.endsWith('/teacher/courses/1') && method === 'GET') return response(courses[0]);
-    if (url.endsWith('/teacher/courses/1/attendance-sessions') && method === 'GET') return response(sessions);
-    if (url.endsWith('/teacher/courses/1/attendance-sessions') && method === 'POST') {
-      return response({ id: 10, courseId: 1, method: 'QR', startedAt: '2099-04-25T08:10:00Z', endsAt: '2099-04-25T08:15:00Z', status: 'OPEN' });
+    if (url.endsWith('/teacher/today') && method === 'GET') {
+      return response(overrides.todayCards ?? defaultTodayCards);
     }
+    if (url.match(/\/teacher\/schedule-slots\/\d+\/attendance-sessions$/) && method === 'POST') {
+      return response({ id: 10, courseId: 1, scheduleSlotId: 11, periodStart: 1, periodEnd: 2, method: 'QR', startedAt: '2099-04-25T08:10:00Z', endsAt: '2099-04-25T09:35:00Z', status: 'OPEN', kind: 'SCHEDULED' });
+    }
+    if (url.endsWith('/teacher/attendance-sessions/makeup') && method === 'POST') {
+      return response({ id: 12, courseId: 1, scheduleSlotId: 11, method: 'QR', startedAt: '2099-04-25T08:10:00Z', endsAt: '2099-04-25T08:40:00Z', status: 'OPEN', kind: 'MAKEUP', makeupReason: 'mock' });
+    }
+    if (url.endsWith('/teacher/courses') && method === 'GET') return response(courses);
+    if (url.endsWith('/teacher/courses/1') && method === 'GET') {
+      return response({ ...courses[0], scheduleSlots: [{ id: 11, weekday: '周一', period: 1, classroom_name: '教三-101' }, { id: 12, weekday: '周三', period: 3, classroom_name: '教三-101' }] });
+    }
+    if (url.endsWith('/teacher/courses/1/attendance-sessions') && method === 'GET') return response(sessions);
     if (url.endsWith('/teacher/courses/1/students')) {
       return response([
         { id: 1, name: '李同学', student_no: '20230001', note: '需要关注' },
         { id: 2, name: '王同学', student_no: '20230002', note: '' },
       ]);
     }
-    if (url.endsWith('/teacher/attendance-sessions/9/records') || url.endsWith('/teacher/attendance-sessions/10/records')) return response(records);
-    if (url.endsWith('/teacher/attendance-sessions/10/qr')) return response({ sessionId: 10, payload: 'qr-attendance://checkin?sessionId=10&token=abc', token: 'abc', expiresAt: '2026-04-25T08:11:00Z' });
-    if (url.endsWith('/teacher/attendance-sessions/10/close')) return response({ id: 10, status: 'CLOSED', method: 'CODE' });
+    if (url.endsWith('/teacher/attendance-sessions/9/records') || url.endsWith('/teacher/attendance-sessions/10/records') || url.endsWith('/teacher/attendance-sessions/12/records')) return response(records);
+    if (url.endsWith('/teacher/attendance-sessions/10/qr') || url.endsWith('/teacher/attendance-sessions/12/qr')) return response({ sessionId: 10, payload: 'qr-attendance://checkin?sessionId=10&token=abc', token: 'abc', expiresAt: '2026-04-25T08:11:00Z' });
+    if (url.endsWith('/teacher/attendance-sessions/10/close') || url.endsWith('/teacher/attendance-sessions/12/close')) return response({ id: 10, status: 'CLOSED', method: 'CODE' });
     if (url.endsWith('/teacher/profile') && method === 'GET') return response({ name: '张老师', username: 'teacher1', department: '计算机学院', phone: '13800000000', email: 'teacher@example.com' });
     if (url.endsWith('/teacher/profile') && method === 'PUT') return response({ name: '张老师', username: 'teacher1', department: '计算机学院', phone: '13800000000', email: 'teacher@example.com' });
     if (url.endsWith('/teacher/password')) return response({ ok: true });

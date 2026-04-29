@@ -174,22 +174,22 @@ function App() {
     const raw = localStorage.getItem('qr-attendance-session');
     return raw ? JSON.parse(raw) : null;
   });
-  const [teacherView, setTeacherView] = useState('courses');
+  const [teacherView, setTeacherView] = useState('today');
   const [adminView, setAdminView] = useState('dashboard');
-  const [breadcrumb, setBreadcrumb] = useState(['首页', '我的课程']);
+  const [breadcrumb, setBreadcrumb] = useState(['首页', '今日课表']);
   const [collapsed, setCollapsed] = useState(false);
 
   function onLogin(nextSession) {
     localStorage.setItem('qr-attendance-session', JSON.stringify(nextSession));
     setSession(nextSession);
-    setTeacherView('courses');
+    setTeacherView('today');
     setAdminView('dashboard');
   }
 
   function logout() {
     localStorage.removeItem('qr-attendance-session');
     setSession(null);
-    setTeacherView('courses');
+    setTeacherView('today');
     setAdminView('dashboard');
   }
 
@@ -210,7 +210,11 @@ function App() {
           </div>
           {isTeacher ? (
             <nav className="sideNav" aria-label="教师导航">
-              <button className={teacherView !== 'profile' && teacherView !== 'leave-requests' ? 'active' : ''} onClick={() => setTeacherView('courses')}>
+              <button className={teacherView === 'today' ? 'active' : ''} onClick={() => setTeacherView('today')}>
+                <CalendarDays size={17} />
+                <span>今日课表</span>
+              </button>
+              <button className={teacherView === 'courses' ? 'active' : ''} onClick={() => setTeacherView('courses')}>
                 <BookOpen size={17} />
                 <span>我的课程</span>
               </button>
@@ -373,13 +377,16 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
   const [detail, setDetail] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [students, setStudents] = useState([]);
-  const [modalCourse, setModalCourse] = useState(null);
+  const [liveSession, setLiveSession] = useState(null);
   const [drawerSession, setDrawerSession] = useState(null);
   const [drawerRecords, setDrawerRecords] = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
-    setBreadcrumb(['首页', view === 'leave-requests' ? '申报审核' : view === 'profile' ? '个人中心' : selectedCourse ? '课程详情' : '我的课程']);
+    if (view === 'today') setBreadcrumb(['首页', '今日课表']);
+    else if (view === 'leave-requests') setBreadcrumb(['首页', '申报审核']);
+    else if (view === 'profile') setBreadcrumb(['首页', '个人中心']);
+    else setBreadcrumb(['首页', selectedCourse ? '课程详情' : '我的课程']);
   }, [setBreadcrumb, selectedCourse, view]);
 
   useEffect(() => {
@@ -464,6 +471,23 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
     return <TeacherProfile client={client} logout={logout} />;
   }
 
+  if (view === 'today') {
+    return (
+      <>
+        <TodayBoard client={client} courses={courses} onLive={setLiveSession} />
+        {liveSession && (
+          <AttendanceModal
+            client={client}
+            session={liveSession}
+            headline={liveSession.headline}
+            subline={liveSession.subline}
+            onClose={() => setLiveSession(null)}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       {!selectedCourse ? (
@@ -471,7 +495,6 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
           courses={courses}
           error={coursesError}
           onOpenDetail={openDetail}
-          onStart={(course) => setModalCourse(course)}
         />
       ) : (
         <CourseDetail
@@ -483,18 +506,9 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
           loading={loadingDetail}
           onBack={() => setSelectedCourse(null)}
           onTab={setActiveTab}
-          onStart={() => setModalCourse(detail ?? selectedCourse)}
           onOpenRecords={openRecordsDrawer}
           onStudentsChange={setStudents}
           onDeleteSession={deleteSession}
-        />
-      )}
-      {modalCourse && (
-        <AttendanceModal
-          client={client}
-          course={modalCourse}
-          onClose={() => setModalCourse(null)}
-          onChanged={refreshCourseData}
         />
       )}
       {drawerSession && (
@@ -511,7 +525,7 @@ function TeacherPortal({ session, view, setView, setBreadcrumb, logout }) {
   );
 }
 
-function CoursesWorkspace({ courses, error, onOpenDetail, onStart }) {
+function CoursesWorkspace({ courses, error, onOpenDetail }) {
   const [keyword, setKeyword] = useState('');
   const [semester, setSemester] = useState('全部学期');
   const semesters = ['全部学期', ...Array.from(new Set(courses.map((course) => course.semester).filter(Boolean)))];
@@ -563,8 +577,7 @@ function CoursesWorkspace({ courses, error, onOpenDetail, onStart }) {
               <p>{course.code} · {course.class_name}</p>
             </div>
             <div className="cardActions">
-              <button className="ghost" onClick={() => onOpenDetail(course)}>查看详情</button>
-              <button onClick={() => onStart(course)}><Plus size={16} />发起考勤</button>
+              <button onClick={() => onOpenDetail(course)}>查看详情</button>
             </div>
           </article>
         ))}
@@ -574,7 +587,7 @@ function CoursesWorkspace({ courses, error, onOpenDetail, onStart }) {
   );
 }
 
-function CourseDetail({ client, course, sessions, students, activeTab, loading, onBack, onTab, onStart, onOpenRecords, onStudentsChange, onDeleteSession }) {
+function CourseDetail({ client, course, sessions, students, activeTab, loading, onBack, onTab, onOpenRecords, onStudentsChange, onDeleteSession }) {
   const totals = sessionTotals(sessions);
   const latest = sessions[0];
 
@@ -610,7 +623,7 @@ function CourseDetail({ client, course, sessions, students, activeTab, loading, 
           <h1>{courseNameText(course.name)}</h1>
           <p>{course.code} · {course.class_name} · {course.semester}</p>
         </div>
-        <button onClick={onStart}><Plus size={16} />发起考勤</button>
+        <span className="hint">前往「今日课表」按节次发起考勤</span>
       </section>
 
       <section className="statGrid">
@@ -799,10 +812,278 @@ function VisualPanel({ sessions, students }) {
   );
 }
 
-function AttendanceModal({ client, course, onClose, onChanged }) {
-  const [step, setStep] = useState(1);
-  const [durationMinutes, setDurationMinutes] = useState(5);
-  const [activeSession, setActiveSession] = useState(null);
+function TodayBoard({ client, courses, onLive }) {
+  const [items, setItems] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [makeupOpen, setMakeupOpen] = useState(false);
+
+  const refresh = async () => {
+    try {
+      const next = await client.get('/teacher/today');
+      setItems(Array.isArray(next) ? next : []);
+      setError('');
+    } catch (err) {
+      setError(err.message ?? '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+    const timer = window.setInterval(refresh, 30000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const summary = useMemo(() => {
+    const total = items.length;
+    const running = items.filter((it) => it.phase === 'RUNNING').length;
+    const ended = items.filter((it) => it.phase === 'ENDED').length;
+    return { total, running, ended, pending: total - running - ended };
+  }, [items]);
+
+  async function startSession(card) {
+    setBusyId(card.slotId);
+    try {
+      const created = await client.post(`/teacher/schedule-slots/${card.slotId}/attendance-sessions`, { method: 'QR' });
+      const headline = `${courseNameText(card.courseName)} · 第 ${card.periodStart}${card.periodEnd > card.periodStart ? `-${card.periodEnd}` : ''} 节`;
+      const subline = `${card.className || ''}${card.classroomName ? ` · ${card.classroomName}` : ''}`;
+      onLive({ id: created.id, endsAt: created.endsAt ?? created.ends_at, headline, subline });
+      await refresh();
+    } catch (err) {
+      setError(err.message ?? '发起考勤失败');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function viewSession(card) {
+    if (!card.session) return;
+    const headline = `${courseNameText(card.courseName)} · 第 ${card.periodStart}${card.periodEnd > card.periodStart ? `-${card.periodEnd}` : ''} 节`;
+    const subline = `${card.className || ''}${card.classroomName ? ` · ${card.classroomName}` : ''}`;
+    onLive({ id: card.session.id, endsAt: card.session.ends_at ?? card.session.endsAt, headline, subline });
+  }
+
+  return (
+    <div className="teacherPage">
+      <section className="pageHead">
+        <div>
+          <h1>今日课表</h1>
+          <p>{formatToday()}</p>
+        </div>
+        <div className="summaryStrip">
+          <span><CalendarDays size={16} />共 {summary.total} 节</span>
+          <span><ClipboardCheck size={16} />进行中 {summary.running}</span>
+          <span><Check size={16} />已结束 {summary.ended}</span>
+          <button className="ghost" onClick={() => setMakeupOpen(true)}><Plus size={16} />补考勤</button>
+        </div>
+      </section>
+
+      {error && <div className="error">{error}</div>}
+      {loading ? (
+        <div className="panel hint">加载中</div>
+      ) : !items.length ? (
+        <div className="empty panel">今天没有排课，可使用「补考勤」记录调课。</div>
+      ) : (
+        <section className="courseCards">
+          {items.map((card) => (
+            <TodayCard
+              key={card.slotId}
+              card={card}
+              now={now}
+              busy={busyId === card.slotId}
+              onStart={() => startSession(card)}
+              onView={() => viewSession(card)}
+            />
+          ))}
+        </section>
+      )}
+
+      {makeupOpen && (
+        <MakeupDialog
+          client={client}
+          courses={courses}
+          onClose={() => setMakeupOpen(false)}
+          onCreated={async (created, card) => {
+            setMakeupOpen(false);
+            onLive({
+              id: created.id,
+              endsAt: created.endsAt ?? created.ends_at,
+              headline: `${courseNameText(card.courseName)} · 补考勤`,
+              subline: `${card.weekday} 第 ${card.period} 节${card.classroom_name ? ` · ${card.classroom_name}` : ''}`,
+            });
+            await refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function TodayCard({ card, now, busy, onStart, onView }) {
+  const startMs = new Date(card.startTime).getTime();
+  const endMs = new Date(card.endTime).getTime();
+  const periodLabel = card.periodEnd > card.periodStart ? `第 ${card.periodStart}-${card.periodEnd} 节` : `第 ${card.periodStart} 节`;
+  const startLabel = new Date(card.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const endLabel = new Date(card.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+  let statusPill = null;
+  let cta = null;
+  if (card.phase === 'BEFORE') {
+    const seconds = Math.max(0, Math.floor((startMs - now) / 1000));
+    statusPill = <span className="pill">未到上课时间</span>;
+    cta = <button className="ghost" disabled>距上课 {formatSeconds(seconds)}</button>;
+  } else if (card.phase === 'RUNNING') {
+    const seconds = Math.max(0, Math.floor((endMs - now) / 1000));
+    statusPill = <span className="pill live">进行中 · 剩 {formatSeconds(seconds)}</span>;
+    cta = <button onClick={onView}>查看二维码</button>;
+  } else if (card.phase === 'ENDED') {
+    statusPill = <span className="pill">已结束</span>;
+    cta = card.session ? <button className="ghost" onClick={onView}>查看记录</button> : <button className="ghost" disabled>未发起</button>;
+  } else {
+    statusPill = <span className="pill live">可发起</span>;
+    cta = <button disabled={busy} onClick={onStart}><Plus size={16} />开始考勤</button>;
+  }
+
+  return (
+    <article className="courseCard">
+      <div>
+        <span className="eyebrow">{periodLabel} · {startLabel}-{endLabel}</span>
+        <h2>{courseNameText(card.courseName)}</h2>
+        <p>{[card.className, card.classroomName].filter(Boolean).join(' · ') || '—'}</p>
+        <div style={{ marginTop: 8 }}>{statusPill}</div>
+        {card.session && (
+          <p className="hint" style={{ marginTop: 8 }}>
+            {card.session.kind === 'MAKEUP' ? '补考勤 · ' : ''}
+            已签到 {Number(card.session.presentCount ?? 0)} / {Number(card.session.totalCount ?? 0)}
+          </p>
+        )}
+      </div>
+      <div className="cardActions">{cta}</div>
+    </article>
+  );
+}
+
+function MakeupDialog({ client, courses, onClose, onCreated }) {
+  const [courseId, setCourseId] = useState(courses[0]?.id ?? '');
+  const [slots, setSlots] = useState([]);
+  const [slotId, setSlotId] = useState('');
+  const [reason, setReason] = useState('');
+  const [duration, setDuration] = useState(30);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!courseId) {
+      setSlots([]);
+      return;
+    }
+    let cancelled = false;
+    client.get(`/teacher/courses/${courseId}`).then((data) => {
+      if (cancelled) return;
+      const list = Array.isArray(data?.scheduleSlots) ? data.scheduleSlots : [];
+      setSlots(list);
+      setSlotId(list[0]?.id ?? '');
+    }).catch((err) => {
+      if (!cancelled) setError(err.message ?? '加载排课失败');
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, courseId]);
+
+  async function submit(event) {
+    event.preventDefault();
+    setError('');
+    if (!slotId) {
+      setError('请选择目标排课');
+      return;
+    }
+    if (!reason.trim()) {
+      setError('请填写补考勤理由');
+      return;
+    }
+    setBusy(true);
+    try {
+      const created = await client.post('/teacher/attendance-sessions/makeup', {
+        slotId: Number(slotId),
+        reason: reason.trim(),
+        durationMinutes: Number(duration),
+      });
+      const slot = slots.find((s) => Number(s.id) === Number(slotId));
+      const card = {
+        courseName: courses.find((c) => Number(c.id) === Number(courseId))?.name,
+        weekday: slot?.weekday ?? '',
+        period: slot?.period ?? '',
+        classroom_name: slot?.classroom_name ?? '',
+      };
+      await onCreated(created, card);
+    } catch (err) {
+      setError(err.message ?? '补考勤失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modalLayer">
+      <section className="modal" role="dialog" aria-modal="true" aria-label="补考勤">
+        <div className="modalHead">
+          <div>
+            <h2>补考勤</h2>
+            <p>用于调课、临时改时间等特殊情况</p>
+          </div>
+          <button className="iconButton" onClick={onClose} aria-label="关闭"><X size={18} /></button>
+        </div>
+        <form className="modalScroll" onSubmit={submit}>
+          <div className="modalBody">
+            <label>
+              课程
+              <select value={courseId} onChange={(event) => setCourseId(Number(event.target.value))}>
+                {courses.map((c) => <option key={c.id} value={c.id}>{c.name}（{c.code}）</option>)}
+              </select>
+            </label>
+            <label>
+              目标排课
+              <select value={slotId} onChange={(event) => setSlotId(Number(event.target.value))} disabled={!slots.length}>
+                {!slots.length && <option value="">该课程暂无排课</option>}
+                {slots.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.weekday} 第 {s.period} 节{s.classroom_name ? ` · ${s.classroom_name}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              开放时长（分钟）
+              <input type="number" min="1" max="120" value={duration} onChange={(event) => setDuration(Number(event.target.value))} />
+            </label>
+            <label>
+              理由
+              <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="例如：周一调到本日补课" />
+            </label>
+            {error && <div className="error">{error}</div>}
+            <div className="actions right">
+              <button type="button" className="ghost" onClick={onClose}>取消</button>
+              <button type="submit" disabled={busy || !slotId}>提交补考勤</button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function AttendanceModal({ client, session, headline, subline, onClose, onClosed }) {
   const [qr, setQr] = useState(null);
   const [records, setRecords] = useState([]);
   const [error, setError] = useState('');
@@ -815,13 +1096,13 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
   const progressPct = totalCount ? Math.round((presentCount / totalCount) * 100) : 0;
 
   useEffect(() => {
-    if (!activeSession || ended) return undefined;
+    if (!session || ended) return undefined;
     let cancelled = false;
     async function refresh() {
       try {
         const [nextQr, nextRecords] = await Promise.all([
-          client.get(`/teacher/attendance-sessions/${activeSession.id}/qr`),
-          client.get(`/teacher/attendance-sessions/${activeSession.id}/records`),
+          client.get(`/teacher/attendance-sessions/${session.id}/qr`),
+          client.get(`/teacher/attendance-sessions/${session.id}/records`),
         ]);
         if (!cancelled) {
           setQr(nextQr);
@@ -841,38 +1122,26 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activeSession, client, ended]);
+  }, [session, client, ended]);
 
   useEffect(() => {
-    if (!activeSession || ended) return undefined;
+    if (!session || ended) return undefined;
     function tick() {
-      const next = Math.max(0, Math.floor((new Date(activeSession.endsAt ?? activeSession.ends_at).getTime() - Date.now()) / 1000));
+      const next = Math.max(0, Math.floor((new Date(session.endsAt ?? session.ends_at).getTime() - Date.now()) / 1000));
       setRemaining(next);
       if (next === 0) setEnded(true);
     }
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [activeSession, ended]);
-
-  async function start() {
-    setError('');
-    try {
-      const created = await client.post(`/teacher/courses/${course.id}/attendance-sessions`, { method: 'QR', durationMinutes });
-      setActiveSession(created);
-      setStep(2);
-      await onChanged();
-    } catch (err) {
-      setError(err.message ?? '创建考勤失败');
-    }
-  }
+  }, [session, ended]);
 
   async function closeSession() {
-    if (!activeSession) return;
+    if (!session) return;
     if (!window.confirm('确定提前结束考勤？二维码将立即失效，未签到学生将记为缺勤。')) return;
-    await client.post(`/teacher/attendance-sessions/${activeSession.id}/close`, {});
+    await client.post(`/teacher/attendance-sessions/${session.id}/close`, {});
     setEnded(true);
-    await onChanged();
+    if (onClosed) await onClosed();
   }
 
   if (fullscreen && qr?.payload) {
@@ -898,82 +1167,57 @@ function AttendanceModal({ client, course, onClose, onChanged }) {
 
   return (
     <div className="modalLayer">
-      <section className="modal" role="dialog" aria-modal="true" aria-label="发起考勤">
+      <section className="modal" role="dialog" aria-modal="true" aria-label="动态考勤">
         <div className="modalHead">
           <div>
-            <h2>发起考勤</h2>
-            <p>{courseNameText(course.name)} · {course.class_name}</p>
+            <h2>{headline ?? '动态考勤'}</h2>
+            {subline && <p>{subline}</p>}
           </div>
           <button className="iconButton" onClick={onClose} aria-label="隐藏窗口，考勤继续" title="隐藏窗口，考勤在后台继续"><X size={18} /></button>
         </div>
 
-        {step === 1 ? (
-          <div className="modalScroll">
-            <div className="modalBody">
-              <div className="fixedMethod">
-                <ClipboardCheck size={18} />
-                <div>
-                  <strong>二维码考勤</strong>
-                  <span>发起后展示动态二维码，学生扫码完成签到。</span>
-                </div>
+        <div className="modalScroll">
+          <div className="modalBody attendanceLive">
+            <div className="liveHeader">
+              <h3>动态签到码</h3>
+              <span className={ended ? 'pill' : 'pill live'}>{ended ? '考勤已结束' : `剩余 ${formatSeconds(remaining)}`}</span>
+            </div>
+            <div className="qrPanel">
+              <div
+                className={`qrPanelTop${!ended && qr?.payload ? ' qrClickable' : ''}`}
+                onClick={!ended && qr?.payload ? () => setFullscreen(true) : undefined}
+                title={!ended && qr?.payload ? '点击全屏展示二维码' : undefined}
+              >
+                {qr?.payload && <div className="qrQuietZone qrQuietZoneSm"><QRCodeSVG value={qr.payload} size={190} /></div>}
+                {!ended && qr?.payload && (
+                  <div className="qrHoverOverlay">
+                    <span>点击放大</span>
+                  </div>
+                )}
               </div>
-              <label>
-                开放时长
-                <input type="number" min="1" max="120" value={durationMinutes} onChange={(event) => setDurationMinutes(Number(event.target.value))} />
-              </label>
+              {qr?.expiresAt && <p className="hint">刷新时间：{new Date(qr.expiresAt).toLocaleTimeString()}</p>}
               {error && <div className="error">{error}</div>}
-              <div className="actions right">
-                <button className="ghost" onClick={onClose}>取消</button>
-                <button onClick={start}>立即开始</button>
+            </div>
+            <div className="liveRight">
+              <div className="liveStats">
+                <div className="liveStatsText">
+                  <Check size={16} />
+                  <span>已签到 <strong>{presentCount}</strong> / {totalCount} 人</span>
+                  <em>{progressPct}%</em>
+                </div>
+                <div className="progressBar"><i style={{ width: `${progressPct}%` }} /></div>
+              </div>
+              <div className="liveScrollArea">
+                <RecordsTable records={records} ended={ended} />
               </div>
             </div>
           </div>
-        ) : (
-          <>
-            <div className="modalScroll">
-              <div className="modalBody attendanceLive">
-                <div className="liveHeader">
-                  <h3>动态签到码</h3>
-                  <span className={ended ? 'pill' : 'pill live'}>{ended ? '考勤已结束' : `剩余 ${formatSeconds(remaining)}`}</span>
-                </div>
-                <div className="qrPanel">
-                  <div
-                    className={`qrPanelTop${!ended && qr?.payload ? ' qrClickable' : ''}`}
-                    onClick={!ended && qr?.payload ? () => setFullscreen(true) : undefined}
-                    title={!ended && qr?.payload ? '点击全屏展示二维码' : undefined}
-                  >
-                    {qr?.payload && <div className="qrQuietZone qrQuietZoneSm"><QRCodeSVG value={qr.payload} size={190} /></div>}
-                    {!ended && qr?.payload && (
-                      <div className="qrHoverOverlay">
-                        <span>点击放大</span>
-                      </div>
-                    )}
-                  </div>
-                  {qr?.expiresAt && <p className="hint">刷新时间：{new Date(qr.expiresAt).toLocaleTimeString()}</p>}
-                  {error && <div className="error">{error}</div>}
-                </div>
-                <div className="liveRight">
-                  <div className="liveStats">
-                    <div className="liveStatsText">
-                      <Check size={16} />
-                      <span>已签到 <strong>{presentCount}</strong> / {totalCount} 人</span>
-                      <em>{progressPct}%</em>
-                    </div>
-                    <div className="progressBar"><i style={{ width: `${progressPct}%` }} /></div>
-                  </div>
-                  <div className="liveScrollArea">
-                    <RecordsTable records={records} ended={ended} />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="modalFooter">
-              <button className="danger" disabled={ended} onClick={closeSession}>
-                提前结束考勤
-              </button>
-            </div>
-          </>
-        )}
+        </div>
+        <div className="modalFooter">
+          <button className="danger" disabled={ended} onClick={closeSession}>
+            提前结束考勤
+          </button>
+        </div>
       </section>
     </div>
   );

@@ -170,8 +170,8 @@ public class StudentController {
               WHERE id IN (
                 SELECT MAX(id)
                 FROM attendance_sessions
-                WHERE substr(started_at, 1, 10) = ?
-                GROUP BY course_id, teacher_id
+                WHERE substr(started_at, 1, 10) = ? AND schedule_slot_id IS NOT NULL
+                GROUP BY schedule_slot_id
               )
             )
             SELECT se.id,
@@ -191,7 +191,7 @@ public class StudentController {
             JOIN course_enrollments ce ON ce.assignment_id = ca.id
             JOIN courses co ON co.id = css.course_id
             JOIN classrooms cl ON cl.id = css.classroom_id
-            LEFT JOIN latest_sessions se ON se.course_id = css.course_id AND se.teacher_id = css.teacher_id
+            LEFT JOIN latest_sessions se ON se.schedule_slot_id = css.id
             LEFT JOIN attendance_records ar ON ar.session_id = se.id AND ar.student_id = ce.student_id
             LEFT JOIN leave_requests lr ON lr.session_id = se.id AND lr.student_id = ce.student_id
             WHERE ce.student_id = ? AND css.weekday = ?
