@@ -20,3 +20,6 @@ AGENTS.md
 .vscode/
 .vite/
 .opencode/
+.claude/
+docs/
+draft/
