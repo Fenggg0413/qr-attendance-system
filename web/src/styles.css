@@ -928,7 +928,7 @@ th {
 }
 
 .dashboardLower > .panel > .courseAttendanceRows,
-.dashboardLower > .panel > .activityList {
+.dashboardLower > .panel > .warningList {
   overflow-y: auto;
 }
 
@@ -1037,7 +1037,7 @@ th {
   overflow-y: auto;
 }
 
-.activityList {
+.warningList {
   display: grid;
   gap: 12px;
   overflow-y: auto;
@@ -1094,13 +1094,23 @@ th {
   background: transparent;
 }
 
-.activityItem {
+.warningItem {
   display: grid;
-  grid-template-columns: 34px minmax(80px, 1fr) minmax(80px, 1fr) minmax(100px, 1fr) min-content;
+  grid-template-columns: 34px minmax(86px, 1fr) minmax(92px, 1fr) max-content;
   gap: 10px;
   align-items: center;
   color: #475569;
   font-size: 13px;
+}
+
+.warningItem em {
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #b91c1c;
+  background: #fee2e2;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .avatarMini {
@@ -1112,6 +1122,11 @@ th {
   color: #176b5b;
   background: #e6f2ee;
   font-weight: 800;
+}
+
+.warningAvatar {
+  color: #b91c1c;
+  background: #fee2e2;
 }
 
 .statusBadge {
@@ -2092,7 +2107,7 @@ button.danger:disabled {
   }
 
   .welcomeBanner,
-  .activityItem,
+  .warningItem,
   .courseAttendanceRow {
     align-items: flex-start;
     grid-template-columns: 1fr;

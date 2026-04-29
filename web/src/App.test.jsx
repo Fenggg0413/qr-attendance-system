@@ -390,9 +390,23 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   expect(screen.getByText('迟到率 5%')).toBeInTheDocument();
   expect(screen.getByText('缺勤率 14%')).toBeInTheDocument();
   expect(screen.getAllByText('生成式 AI').length).toBeGreaterThan(0);
-  expect(screen.getByText('最近活动记录')).toBeInTheDocument();
+  expect(screen.getByText('预警提醒')).toBeInTheDocument();
+  expect(screen.getByText('预警学生')).toBeInTheDocument();
+  expect(screen.getByText('缺勤 5 次')).toBeInTheDocument();
+  expect(screen.queryByText('最近活动记录')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '标记考勤' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: '添加学生' })).not.toBeInTheDocument();
+});
+
+test('admin dashboard absence warnings show empty state when no student exceeds threshold', async () => {
+  mockAdminApi({ absenceWarnings: [] });
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+
+  await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
+  expect(screen.getByText('预警提醒')).toBeInTheDocument();
+  expect(screen.getByText('暂无预警')).toBeInTheDocument();
 });
 
 test('admin can manage classrooms for schedule slot selection', async () => {
@@ -887,6 +901,10 @@ function mockAdminApi(options = {}) {
     },
   ];
   let courseStudents = [students[1]];
+  const absenceWarnings = options.absenceWarnings ?? [
+    { student_id: 2, student_name: '预警学生', student_no: '20230002', absent_count: 5 },
+    { student_id: 1, student_name: '关注学生', student_no: '20230001', absent_count: 4 },
+  ];
   global.fetch = vi.fn(async (url, options = {}) => {
     const method = options.method ?? 'GET';
     if (url.endsWith('/auth/login')) {
@@ -909,6 +927,7 @@ function mockAdminApi(options = {}) {
           { course_id: 1, course_name: '数据结构', present: 2, total: 2, absent: 0, late: 0 },
           { course_id: 2, course_name: '生成式 AI', present: 1, total: 2, absent: 1, late: 0 },
         ],
+        absenceWarnings,
         recentActivities: [
           { id: 1, student_name: '课程学生', course_name: '生成式 AI', checked_in_at: '2026-04-26T08:00:00Z', status: 'PRESENT' },
         ],

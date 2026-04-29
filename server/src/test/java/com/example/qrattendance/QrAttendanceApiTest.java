@@ -112,7 +112,7 @@ class QrAttendanceApiTest {
         sessionId,
         studentId,
         "LATE",
-        "2026-04-26T08:10:00Z",
+        Instant.now().toString(),
         "QR");
 
     mvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer " + adminToken))
@@ -125,6 +125,36 @@ class QrAttendanceApiTest {
         .andExpect(jsonPath("$.courseAttendance[?(@.course_name == '仪表盘课程-" + suffix + "')].total").value(org.hamcrest.Matchers.hasItem(1)))
         .andExpect(jsonPath("$.courseAttendance[?(@.course_name == '仪表盘课程-" + suffix + "')].late").value(org.hamcrest.Matchers.hasItem(1)))
         .andExpect(jsonPath("$.recentActivities[?(@.student_name == '仪表盘学生')].status").value(org.hamcrest.Matchers.hasItem("LATE")));
+  }
+
+  @Test
+  void adminDashboardShowsAbsenceWarningsForStudentsAboveThreshold() throws Exception {
+    long suffix = System.nanoTime();
+    String adminToken = login("admin", "admin123");
+    long departmentId = createDepartment("预警学院-" + suffix);
+    long teacherId = createTeacher("teacher-warning-" + suffix, "teacher123", "预警老师", departmentId);
+    long courseId = createCourse("预警课程-" + suffix, "WARN-" + suffix, departmentId);
+    long highRiskStudentId = createStudent("warning-high-" + suffix, "高预警学生", "WARN-HIGH-" + suffix, departmentId);
+    long mediumRiskStudentId = createStudent("warning-medium-" + suffix, "中预警学生", "WARN-MED-" + suffix, departmentId);
+    long lowRiskStudentId = createStudent("warning-low-" + suffix, "低风险学生", "WARN-LOW-" + suffix, departmentId);
+
+    for (int i = 0; i < 6; i += 1) {
+      insertRecord(insertSession(courseId, teacherId, "CLOSED"), highRiskStudentId, "ABSENT");
+    }
+    for (int i = 0; i < 4; i += 1) {
+      insertRecord(insertSession(courseId, teacherId, "CLOSED"), mediumRiskStudentId, "ABSENT");
+    }
+    for (int i = 0; i < 3; i += 1) {
+      insertRecord(insertSession(courseId, teacherId, "CLOSED"), lowRiskStudentId, "ABSENT");
+    }
+
+    mvc.perform(get("/api/admin/dashboard").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.absenceWarnings[0].student_name", is("高预警学生")))
+        .andExpect(jsonPath("$.absenceWarnings[0].absent_count", is(6)))
+        .andExpect(jsonPath("$.absenceWarnings[1].student_name", is("中预警学生")))
+        .andExpect(jsonPath("$.absenceWarnings[1].absent_count", is(4)))
+        .andExpect(jsonPath("$.absenceWarnings[?(@.student_no == 'WARN-LOW-" + suffix + "')]").value(org.hamcrest.Matchers.empty()));
   }
 
   @Test

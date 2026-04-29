@@ -1663,7 +1663,7 @@ function AdminDashboard({ client, session, onAuthExpired }) {
 
       <section className="dashboardLower">
         <CourseAttendanceTable rows={data.courseAttendance ?? []} />
-        <RecentActivities rows={data.recentActivities ?? []} />
+        <AbsenceWarnings rows={data.absenceWarnings ?? []} />
       </section>
     </div>
   );
@@ -1752,30 +1752,33 @@ function CourseAttendanceTable({ rows }) {
   );
 }
 
-function RecentActivities({ rows }) {
+function AbsenceWarnings({ rows }) {
   const [showAll, setShowAll] = useState(false);
-  const displayed = showAll ? rows : rows.slice(0, 7);
+  const sortedRows = useMemo(
+    () => [...rows].sort((a, b) => Number(b.absent_count ?? 0) - Number(a.absent_count ?? 0)),
+    [rows],
+  );
+  const displayed = showAll ? sortedRows : sortedRows.slice(0, 7);
   return (
     <section className="panel">
       <div className="panelHead">
-        <h2>最近活动记录</h2>
-        {rows.length > 7 && (
+        <h2>预警提醒</h2>
+        {sortedRows.length > 7 && (
           <button className="plainLink showMoreToggle" type="button" onClick={() => setShowAll(!showAll)}>
-            {showAll ? '收起' : `查看全部 ${rows.length} 条记录`}
+            {showAll ? '收起' : `查看全部 ${sortedRows.length} 条预警`}
           </button>
         )}
       </div>
-      <div className="activityList">
+      <div className="warningList">
         {displayed.map((row) => (
-          <div className="activityItem" key={row.id ?? `${row.student_name}-${row.checked_in_at}`}>
-            <span className="avatarMini">{String(row.student_name ?? '学').slice(0, 1)}</span>
+          <div className="warningItem" key={row.student_id ?? row.student_no ?? row.student_name}>
+            <span className="avatarMini warningAvatar">{String(row.student_name ?? '学').slice(0, 1)}</span>
             <strong>{row.student_name}</strong>
-            <span>{row.course_name}</span>
-            <time>{formatDate(row.checked_in_at)}</time>
-            <span className={`statusBadge ${String(row.status).toLowerCase()}`}>{statusText(row.status)}</span>
+            <span>{row.student_no ?? '未设置学号'}</span>
+            <em>缺勤 {Number(row.absent_count ?? 0)} 次</em>
           </div>
         ))}
-        {!rows.length && <div className="empty">暂无活动</div>}
+        {!sortedRows.length && <div className="empty">暂无预警</div>}
       </div>
     </section>
   );

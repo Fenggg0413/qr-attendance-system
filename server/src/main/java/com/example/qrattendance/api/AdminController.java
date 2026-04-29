@@ -74,6 +74,20 @@ public class AdminController {
             ORDER BY COALESCE(ar.checked_in_at, se.started_at) DESC, ar.id DESC
             LIMIT 8
             """);
+    List<Map<String, Object>> absenceWarnings =
+        jdbc.queryForList(
+            """
+            SELECT s.id student_id,
+                   s.name student_name,
+                   s.student_no,
+                   COUNT(*) absent_count
+            FROM attendance_records ar
+            JOIN students s ON s.id = ar.student_id
+            WHERE ar.status = 'ABSENT'
+            GROUP BY s.id, s.name, s.student_no
+            HAVING COUNT(*) > 3
+            ORDER BY absent_count DESC, s.id ASC
+            """);
     String today = LocalDate.now(ZoneId.systemDefault()).toString();
     Map<String, Object> todayCounts =
         firstOrZero(
@@ -112,6 +126,7 @@ public class AdminController {
         "trend", sevenDayTrend(),
         "distribution", distributionWithRate,
         "courseAttendance", courseAttendance,
+        "absenceWarnings", absenceWarnings,
         "recentActivities", activities);
   }
 
