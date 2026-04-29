@@ -159,6 +159,12 @@ test('course search input keeps focus cursor without browser outline', () => {
   expect(css).toMatch(/\.searchField input:focus\s*\{[^}]*outline:\s*none;?[^}]*\}/);
 });
 
+test('desktop sidebar stays pinned while page content scrolls', () => {
+  const css = readFileSync(resolve(__dirname, 'styles.css'), 'utf8');
+
+  expect(css).toMatch(/\.side\s*\{[^}]*position:\s*sticky;?[^}]*top:\s*0;?[^}]*height:\s*100vh;?[^}]*align-self:\s*start;?[^}]*\}/);
+});
+
 test('admin course detail action is centered on the right side of the card', () => {
   const css = readFileSync(resolve(__dirname, 'styles.css'), 'utf8');
 
