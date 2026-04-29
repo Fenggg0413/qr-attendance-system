@@ -1034,12 +1034,14 @@ th {
 .courseAttendanceRows {
   display: grid;
   gap: 12px;
+  max-height: 420px;
   overflow-y: auto;
 }
 
 .warningList {
   display: grid;
   gap: 12px;
+  max-height: 420px;
   overflow-y: auto;
 }
 
@@ -1075,16 +1077,10 @@ th {
   background: #16a34a;
 }
 
-.showMoreToggle {
-  min-height: auto;
-  padding: 0;
-  color: #176b5b;
+.panelCount {
+  color: #94a3b8;
   font-size: 13px;
-  background: transparent;
-}
-
-.showMoreToggle:hover {
-  text-decoration: underline;
+  font-weight: 500;
 }
 
 .plainLink {

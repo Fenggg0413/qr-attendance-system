@@ -1720,20 +1720,14 @@ function DonutSummary({ distribution }) {
 }
 
 function CourseAttendanceTable({ rows }) {
-  const [showAll, setShowAll] = useState(false);
-  const displayed = showAll ? rows : rows.slice(0, 10);
   return (
     <section className="panel">
       <div className="panelHead">
         <h2>课程出勤情况</h2>
-        {rows.length > 10 && (
-          <button className="plainLink showMoreToggle" type="button" onClick={() => setShowAll(!showAll)}>
-            {showAll ? '收起' : `查看全部 ${rows.length} 门课程`}
-          </button>
-        )}
+        {rows.length > 0 && <span className="panelCount">共 {rows.length} 门课程</span>}
       </div>
       <div className="courseAttendanceRows">
-        {displayed.map((row) => {
+        {rows.map((row) => {
           const total = Number(row.total ?? 0);
           const attended = Number(row.present ?? 0) + Number(row.late ?? 0);
           const rate = total ? Math.round((attended / total) * 100) : 0;
@@ -1753,24 +1747,18 @@ function CourseAttendanceTable({ rows }) {
 }
 
 function AbsenceWarnings({ rows }) {
-  const [showAll, setShowAll] = useState(false);
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => Number(b.absent_count ?? 0) - Number(a.absent_count ?? 0)),
     [rows],
   );
-  const displayed = showAll ? sortedRows : sortedRows.slice(0, 7);
   return (
     <section className="panel">
       <div className="panelHead">
         <h2>预警提醒</h2>
-        {sortedRows.length > 7 && (
-          <button className="plainLink showMoreToggle" type="button" onClick={() => setShowAll(!showAll)}>
-            {showAll ? '收起' : `查看全部 ${sortedRows.length} 条预警`}
-          </button>
-        )}
+        {sortedRows.length > 0 && <span className="panelCount">共 {sortedRows.length} 条预警</span>}
       </div>
       <div className="warningList">
-        {displayed.map((row) => (
+        {sortedRows.map((row) => (
           <div className="warningItem" key={row.student_id ?? row.student_no ?? row.student_name}>
             <span className="avatarMini warningAvatar">{String(row.student_name ?? '学').slice(0, 1)}</span>
             <strong>{row.student_name}</strong>
