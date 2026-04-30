@@ -46,8 +46,8 @@ class FakeStudentApi : StudentApi {
 
   override suspend fun records(filter: String?): List<AttendanceRecord> =
     listOf(
-      AttendanceRecord(id = 1, courseName = "移动开发", status = "PRESENT", checkedInAt = "2026-04-28T08:00:00Z"),
-      AttendanceRecord(id = 2, courseName = "数据结构", status = "ABSENT", checkedInAt = "2026-04-27T08:00:00Z"),
+      AttendanceRecord(id = 1, courseName = "移动开发", status = "PRESENT", checkedInAt = "2026-04-28T08:00:00Z", teacherName = "王老师", classroomName = "教1-301"),
+      AttendanceRecord(id = 2, courseName = "数据结构", status = "ABSENT", checkedInAt = "2026-04-27T08:00:00Z", teacherName = "张老师", classroomName = "教2-205"),
       
     )
 

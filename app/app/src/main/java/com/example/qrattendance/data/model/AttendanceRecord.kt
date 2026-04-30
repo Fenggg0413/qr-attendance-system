@@ -10,4 +10,6 @@ data class AttendanceRecord(
   val status: String = "",
   val checkedInAt: String? = null,
   val source: String = "",
+  val teacherName: String = "",
+  val classroomName: String = "",
 )

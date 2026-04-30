@@ -72,7 +72,7 @@ public class StudentController {
   public List<Map<String, Object>> records() {
     long studentId = studentId();
     return jdbc.queryForList(
-        "SELECT ar.id, ar.session_id sessionId, co.name courseName, ar.status, ar.checked_in_at checkedInAt, ar.source FROM attendance_records ar JOIN attendance_sessions se ON se.id = ar.session_id JOIN courses co ON co.id = se.course_id WHERE ar.student_id = ? ORDER BY ar.id DESC",
+        "SELECT ar.id, ar.session_id sessionId, co.name courseName, ar.status, ar.checked_in_at checkedInAt, ar.source, u.display_name teacherName, COALESCE(cl.name, '') classroomName FROM attendance_records ar JOIN attendance_sessions se ON se.id = ar.session_id JOIN courses co ON co.id = se.course_id JOIN teachers t ON t.id = se.teacher_id JOIN users u ON u.id = t.user_id LEFT JOIN course_schedule_slots css ON css.id = se.schedule_slot_id LEFT JOIN classrooms cl ON cl.id = css.classroom_id WHERE ar.student_id = ? ORDER BY ar.id DESC",
         studentId);
   }
 

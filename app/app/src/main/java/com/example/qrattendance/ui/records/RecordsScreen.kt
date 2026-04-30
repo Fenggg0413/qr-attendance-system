@@ -108,6 +108,13 @@ private fun RecordRow(record: AttendanceRecord) {
     Column(Modifier.weight(1f)) {
       Text(record.courseName, style = MaterialTheme.typography.bodyMedium)
       Text(Format.compactDateTime(record.checkedInAt), color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+      if (record.teacherName.isNotBlank() || record.classroomName.isNotBlank()) {
+        Text(
+          listOfNotNull(record.teacherName.ifBlank { null }, record.classroomName.ifBlank { null }).joinToString(" · "),
+          color = TextSecondary,
+          style = MaterialTheme.typography.labelSmall,
+        )
+      }
     }
     StatusBadge(record.status)
   }
