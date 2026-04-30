@@ -451,10 +451,6 @@ function LoginView({ onLogin }) {
               '登录系统'
             )}
           </button>
-          
-          <div className="demoHint">
-            演示账号: admin / admin123
-          </div>
         </form>
       </section>
     </main>
