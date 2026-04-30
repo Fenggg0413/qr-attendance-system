@@ -2154,6 +2154,12 @@ button.danger:disabled {
   letter-spacing: 2px;
 }
 
+.qrFullscreenRefresh {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
 .qrFullscreenStats {
   color: rgba(255, 255, 255, 0.75);
   font-size: 22px;

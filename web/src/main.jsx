@@ -1169,6 +1169,7 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
   const [error, setError] = useState('');
   const [ended, setEnded] = useState(() => session?.recordsOnly || session?.status === 'CLOSED');
   const [remaining, setRemaining] = useState(0);
+  const [qrRefresh, setQrRefresh] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
 
   const presentCount = records.filter((r) => r.status === 'PRESENT' || r.status === 'LATE').length;
@@ -1227,6 +1228,17 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
     return () => window.clearInterval(timer);
   }, [session, ended]);
 
+  useEffect(() => {
+    if (!qr?.expiresAt) return undefined;
+    function tick() {
+      const next = Math.max(0, Math.floor((new Date(qr.expiresAt).getTime() - Date.now()) / 1000));
+      setQrRefresh(next);
+    }
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [qr?.expiresAt]);
+
   async function closeSession() {
     if (!session) return;
     if (!window.confirm('确定提前结束考勤？二维码将立即失效，未签到学生将记为缺勤。')) return;
@@ -1242,6 +1254,7 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
           <div className="qrFullscreenCountdown">
             {ended ? '考勤已结束' : formatSeconds(remaining)}
           </div>
+          {!ended && <div className="qrFullscreenRefresh">{qrRefresh > 0 ? `刷新倒计时 ${qrRefresh}s` : '刷新中…'}</div>}
           <div className="qrQuietZone">
             <QRCodeSVG value={qr.payload} size={Math.min(520, typeof window !== 'undefined' ? window.innerWidth * 0.6 : 400)} level="M" />
           </div>
@@ -1286,7 +1299,7 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
                   </div>
                 )}
               </div>
-              {qr?.expiresAt && <p className="hint">刷新时间：{new Date(qr.expiresAt).toLocaleTimeString()}</p>}
+              {!ended && qr?.expiresAt && <p className="hint">{qrRefresh > 0 ? `刷新倒计时 ${qrRefresh}s` : '刷新中…'}</p>}
               {error && <div className="error">{error}</div>}
             </div>
             <div className="liveRight">

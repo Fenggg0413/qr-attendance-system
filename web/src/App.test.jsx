@@ -284,6 +284,44 @@ test('ended today session shows records even when qr endpoint is gone', async ()
   expect(global.fetch).toHaveBeenCalledWith('/api/teacher/attendance-sessions/9/records', expect.anything());
 });
 
+test('QR refresh shows countdown instead of absolute time in inline view', async () => {
+  mockTeacherApi({ qrExpiresIn: 10 });
+
+  render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
+
+  await waitFor(() => expect(screen.getByRole('button', { name: /开始考勤/ })).toBeInTheDocument());
+  await userEvent.click(screen.getByRole('button', { name: /开始考勤/ }));
+
+  await waitFor(() => expect(screen.getByText('动态签到码')).toBeInTheDocument());
+
+  expect(screen.queryByText(/刷新时间：/)).not.toBeInTheDocument();
+  expect(screen.getByText(/刷新倒计时 \d+s|刷新中…/)).toBeInTheDocument();
+});
+
+test('QR fullscreen shows both session and refresh countdowns', async () => {
+  mockTeacherApi({ qrExpiresIn: 10 });
+
+  const { container } = render(<App />);
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
+  await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
+
+  await waitFor(() => expect(screen.getByRole('button', { name: /开始考勤/ })).toBeInTheDocument());
+  await userEvent.click(screen.getByRole('button', { name: /开始考勤/ }));
+
+  await waitFor(() => expect(screen.getByText('动态签到码')).toBeInTheDocument());
+
+  const qrPanel = container.querySelector('.qrClickable');
+  expect(qrPanel).toBeTruthy();
+  await userEvent.click(qrPanel);
+
+  await waitFor(() => expect(screen.getByText('退出全屏')).toBeInTheDocument());
+
+  expect(container.querySelector('.qrFullscreenCountdown')).toHaveTextContent(/\d+:\d{2}/);
+  expect(screen.getByText(/刷新倒计时 \d+s|刷新中…/)).toBeInTheDocument();
+});
+
 test('makeup dialog enforces reason and posts to makeup endpoint', async () => {
   mockTeacherApi({ todayCards: [] });
 
@@ -800,6 +838,7 @@ function mockTeacherApi(overrides = {}) {
     REJECTED: [],
     ALL: [],
   };
+  const qrExpiresAt = overrides.qrExpiresIn != null ? new Date(Date.now() + overrides.qrExpiresIn * 1000).toISOString() : '2026-04-25T08:11:00Z';
   global.fetch = vi.fn(async (url, options = {}) => {
     const method = options.method ?? 'GET';
     if (url.endsWith('/auth/login')) {
@@ -847,7 +886,7 @@ function mockTeacherApi(overrides = {}) {
     }
     if (url.endsWith('/teacher/attendance-sessions/9/records') || url.endsWith('/teacher/attendance-sessions/10/records') || url.endsWith('/teacher/attendance-sessions/12/records')) return response(records);
     if (overrides.expiredQrSessionIds?.some((id) => url.endsWith(`/teacher/attendance-sessions/${id}/qr`))) return errorResponse(410, { message: '考勤已结束' });
-    if (url.endsWith('/teacher/attendance-sessions/10/qr') || url.endsWith('/teacher/attendance-sessions/12/qr')) return response({ sessionId: 10, payload: 'qr-attendance://checkin?sessionId=10&token=abc', token: 'abc', expiresAt: '2026-04-25T08:11:00Z' });
+    if (url.endsWith('/teacher/attendance-sessions/10/qr') || url.endsWith('/teacher/attendance-sessions/12/qr')) return response({ sessionId: 10, payload: 'qr-attendance://checkin?sessionId=10&token=abc', token: 'abc', expiresAt: qrExpiresAt });
     if (url.endsWith('/teacher/attendance-sessions/10/close') || url.endsWith('/teacher/attendance-sessions/12/close')) return response({ id: 10, status: 'CLOSED', method: 'CODE' });
     if (url.endsWith('/teacher/profile') && method === 'GET') return response({ name: '张老师', username: 'teacher1', department: '计算机学院', phone: '13800000000', email: 'teacher@example.com' });
     if (url.endsWith('/teacher/profile') && method === 'PUT') return response({ name: '张老师', username: 'teacher1', department: '计算机学院', phone: '13800000000', email: 'teacher@example.com' });
