@@ -352,107 +352,85 @@ function LoginView({ onLogin }) {
   }
 
   return (
-    <main className="loginSplitLayout">
-      <section className="loginShowcase">
-        <div className="showcaseTop">
-          <Cloud size={24} strokeWidth={2.5} />
-          <span>云考勤系统</span>
-        </div>
-        <div className="showcaseContent">
-          <h2>
-            构建无感<br />
-            数字校园
-          </h2>
-          <div className="showcaseLine"></div>
-          <p>
-            Millisecond-level dynamic QR attendance.<br />
-            Empowering the next generation of education.
-          </p>
-        </div>
-        <div className="showcaseFooter">
-          © 2026 QR Attendance System.
-        </div>
-      </section>
-
-      <section className="loginFormSection">
-        <form className="loginPanelRefined" onSubmit={submit}>
-          <div className="loginBrandRefined">
-            <h1>欢迎回来</h1>
-            <p>请输入您的账号密码以继续</p>
+    <main className="login">
+      <form className="loginPanel" onSubmit={submit}>
+        <div className="loginBrand">
+          <div className="loginBrandIcon">
+            <ClipboardCheck size={24} strokeWidth={2.2} />
           </div>
-          
-          {error && (
-            <div className="loginBannerError" role="alert" aria-live="assertive">
-              <X size={16} />
-              <span>{error}</span>
+          <h1>校园云考勤系统</h1>
+        </div>
+        
+        {error && (
+          <div className="loginBannerError" role="alert" aria-live="assertive">
+            <X size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="loginFieldsGroup">
+          <label className="loginField" htmlFor="login-username">
+            <span>账号</span>
+            <div className="loginInputWrap">
+              <UserRound size={16} />
+              <input
+                id="login-username"
+                name="username"
+                autoComplete="username"
+                required
+                autoFocus
+                value={form.username}
+                placeholder="请输入学号或工号"
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+              />
             </div>
+          </label>
+
+          <label className="loginField" htmlFor="login-password">
+            <span>密码</span>
+            <div className="loginInputWrap">
+              <KeyRound size={16} />
+              <input
+                id="login-password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                required
+                value={form.password}
+                placeholder="请输入密码"
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              <button 
+                type="button" 
+                className="passwordToggle" 
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                title={showPassword ? "隐藏密码" : "显示密码"}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </label>
+        </div>
+
+        <div className="loginOptions">
+          <label className="rememberMe">
+            <input type="checkbox" name="remember" />
+            <span>保持登录状态</span>
+          </label>
+        </div>
+
+        <button className="loginSubmit" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 size={18} className="loginSpin" />
+              登录中...
+            </>
+          ) : (
+            '登录'
           )}
-
-          <div className="loginFieldsGroup">
-            <label className="loginFieldRefined" htmlFor="login-username">
-              <span>账号</span>
-              <div className="loginInputWrapRefined">
-                <UserRound size={18} />
-                <input
-                  id="login-username"
-                  name="username"
-                  autoComplete="username"
-                  required
-                  autoFocus
-                  value={form.username}
-                  placeholder="请输入学号或工号"
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                />
-              </div>
-            </label>
-
-            <label className="loginFieldRefined" htmlFor="login-password">
-              <span>密码</span>
-              <div className="loginInputWrapRefined">
-                <KeyRound size={18} />
-                <input
-                  id="login-password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
-                  value={form.password}
-                  placeholder="请输入密码"
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                />
-                <button 
-                  type="button" 
-                  className="passwordToggle" 
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
-                  title={showPassword ? "隐藏密码" : "显示密码"}
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </label>
-          </div>
-
-          <div className="loginOptions">
-            <label className="rememberMe">
-              <input type="checkbox" name="remember" />
-              <span>保持登录状态</span>
-            </label>
-            <a href="#" className="forgotPassword" onClick={(e) => e.preventDefault()}>忘记密码？</a>
-          </div>
-
-          <button className="loginSubmitRefined" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 size={18} className="loginSpin" />
-                登录中...
-              </>
-            ) : (
-              '登录系统'
-            )}
-          </button>
-        </form>
-      </section>
+        </button>
+      </form>
     </main>
   );
 }
