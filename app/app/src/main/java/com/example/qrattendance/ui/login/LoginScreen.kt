@@ -48,14 +48,18 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.qrattendance.core.LocalContainer
+import com.example.qrattendance.ui.theme.Background
+import com.example.qrattendance.ui.theme.Border
+import com.example.qrattendance.ui.theme.Primary
+import com.example.qrattendance.ui.theme.TextPrimary
 import com.example.qrattendance.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
-private val PrimaryWeb = Color(0xFF176B5B)
-private val BrandText = Color(0xFF10201D)
-private val GradientStart = Color(0xFFEAF1EA)
-private val GradientEnd = Color(0xFFF8FBFF)
-private val InputBorder = Color(0xFFC8D4CF)
+private val PrimaryApp = Primary
+private val BrandText = TextPrimary
+private val GradientStart = Color(0xFFEAF2F8)
+private val GradientEnd = Background
+private val InputBorder = Border
 
 @Composable
 fun LoginScreen(onLoggedIn: () -> Unit) {
@@ -85,7 +89,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
       ) {
         Column {
           // Top accent line
-          Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(PrimaryWeb))
+          Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(PrimaryApp))
           
           Column(
             modifier = Modifier.padding(32.dp),
@@ -100,7 +104,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
               Box(
                 modifier = Modifier
                   .size(48.dp)
-                  .background(PrimaryWeb, RoundedCornerShape(12.dp)),
+                  .background(PrimaryApp, RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
               ) {
                 Icon(
@@ -152,10 +156,10 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = PrimaryWeb,
+                  focusedBorderColor = PrimaryApp,
                   unfocusedBorderColor = InputBorder,
-                  focusedLabelColor = PrimaryWeb,
-                  cursorColor = PrimaryWeb
+                  focusedLabelColor = PrimaryApp,
+                  cursorColor = PrimaryApp
                 )
               )
               
@@ -170,10 +174,10 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                  focusedBorderColor = PrimaryWeb,
+                  focusedBorderColor = PrimaryApp,
                   unfocusedBorderColor = InputBorder,
-                  focusedLabelColor = PrimaryWeb,
-                  cursorColor = PrimaryWeb
+                  focusedLabelColor = PrimaryApp,
+                  cursorColor = PrimaryApp
                 )
               )
             }
@@ -184,7 +188,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
               horizontalArrangement = Arrangement.End
             ) {
               TextButton(onClick = { /* TODO: Forgot password */ }) {
-                Text("忘记密码？", color = PrimaryWeb, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                Text("忘记密码？", color = PrimaryApp, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
               }
             }
 
@@ -194,7 +198,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
               enabled = !state.loading,
               modifier = Modifier.fillMaxWidth().height(44.dp),
               shape = RoundedCornerShape(10.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = PrimaryWeb)
+              colors = ButtonDefaults.buttonColors(containerColor = PrimaryApp)
             ) {
               if (state.loading) {
                 Text("登录中...")
@@ -251,9 +255,9 @@ private fun EndpointConfigDialog(
           modifier = Modifier.fillMaxWidth(),
           shape = RoundedCornerShape(10.dp),
           colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryWeb,
-            focusedLabelColor = PrimaryWeb,
-            cursorColor = PrimaryWeb
+            focusedBorderColor = PrimaryApp,
+            focusedLabelColor = PrimaryApp,
+            cursorColor = PrimaryApp
           )
         )
         Text(
@@ -265,10 +269,10 @@ private fun EndpointConfigDialog(
       }
     },
     confirmButton = {
-      Button(onClick = onSave, colors = ButtonDefaults.buttonColors(containerColor = PrimaryWeb)) { Text("保存") }
+      Button(onClick = onSave, colors = ButtonDefaults.buttonColors(containerColor = PrimaryApp)) { Text("保存") }
     },
     dismissButton = {
-      TextButton(onClick = onDismiss) { Text("取消", color = PrimaryWeb) }
+      TextButton(onClick = onDismiss) { Text("取消", color = PrimaryApp) }
     },
   )
 }
