@@ -86,85 +86,308 @@ th {
   font-weight: 700;
 }
 
-/* --- Login page background with subtle dot texture --- */
-.login {
+/* --- Refined Minimalist Split-Screen Login --- */
+.loginSplitLayout {
   display: grid;
+  grid-template-columns: 1fr;
   min-height: 100vh;
-  place-items: center;
-  padding: 24px;
-  background:
-    linear-gradient(135deg, #eaf1ea, #f8fbff);
+  background: #ffffff;
+  font-family: Inter, "PingFang SC", sans-serif;
+}
+
+@media (min-width: 900px) {
+  .loginSplitLayout {
+    grid-template-columns: minmax(400px, 45%) 1fr;
+  }
+}
+
+/* --- Left Panel: Feature Showcase --- */
+.loginShowcase {
+  display: none;
+  background: #0d1614; /* Deep dark green/black for high contrast professional look */
+  color: #ffffff;
+  padding: 64px;
+  flex-direction: column;
+  justify-content: space-between;
   position: relative;
   overflow: hidden;
 }
 
-.login::before {
+@media (min-width: 900px) {
+  .loginShowcase {
+    display: flex;
+  }
+}
+
+/* Subtle decorative pattern for the dark panel */
+.loginShowcase::before {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23176b5b' fill-opacity='0.035'/%3E%3C/svg%3E");
+  background-image: radial-gradient(circle at top right, rgba(23, 107, 91, 0.15), transparent 60%),
+                    radial-gradient(circle at bottom left, rgba(23, 107, 91, 0.1), transparent 50%);
   pointer-events: none;
 }
 
-/* --- Login panel: refined floating card --- */
-.loginPanel {
+.showcaseContent {
   position: relative;
-  display: grid;
-  width: min(420px, 100%);
-  gap: 18px;
-  padding: 32px;
-  border: 1px solid #d8e2dc;
+  z-index: 1;
+  max-width: 480px;
+  margin-top: 10vh;
+}
+
+.showcaseIconWrapper {
+  width: 64px;
+  height: 64px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow:
-    0 1px 2px rgba(16, 32, 29, 0.04),
-    0 8px 24px rgba(16, 32, 29, 0.06),
-    0 24px 48px rgba(16, 32, 29, 0.10);
-  animation: loginEnter 0.45s ease-out both;
+  background: rgba(23, 107, 91, 0.2);
+  border: 1px solid rgba(23, 107, 91, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2ed0b0;
+  margin-bottom: 32px;
 }
 
-/* Top brand accent line */
-.loginPanel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: #176b5b;
-  border-radius: 16px 16px 0 0;
+.showcaseContent h2 {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  margin: 0 0 24px;
+  color: #ffffff;
 }
 
-/* --- Login brand header --- */
-.loginBrand {
-  display: grid;
-  place-items: center;
-  gap: 10px;
-  text-align: center;
-  margin-bottom: 4px;
+.showcaseContent p {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #9bb5af;
+  margin: 0 0 40px;
 }
 
-.loginBrandIcon {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border-radius: 12px;
-  color: white;
-  background: #176b5b;
-}
-
-.loginBrand h1 {
+.featureList {
+  list-style: none;
+  padding: 0;
   margin: 0;
-  font-size: 26px;
-  font-weight: 800;
+  display: grid;
+  gap: 20px;
+}
+
+.featureList li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  color: #c4d6d1;
+}
+
+.featureList li svg {
+  color: #2ed0b0;
+  flex-shrink: 0;
+}
+
+.showcaseFooter {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  color: #5c756e;
+}
+
+/* --- Right Panel: Form Section --- */
+.loginFormSection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: #ffffff;
+}
+
+.loginPanelRefined {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 24px;
+  animation: loginFadeIn 0.5s ease-out;
+}
+
+@keyframes loginFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.loginBrandRefined {
+  margin-bottom: 8px;
+}
+
+.loginBrandRefined h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #10201d;
+  margin: 0 0 8px;
+  letter-spacing: -0.5px;
+}
+
+.loginBrandRefined p {
+  font-size: 15px;
+  color: #687873;
+  margin: 0;
+}
+
+.loginFieldsGroup {
+  display: grid;
+  gap: 20px;
+}
+
+.loginFieldRefined {
+  display: grid;
+  gap: 8px;
+}
+
+.loginFieldRefined > span {
+  font-size: 14px;
+  font-weight: 600;
   color: #10201d;
 }
 
-.loginBrand p {
-  margin: 0;
+.loginInputWrapRefined {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  border: 1px solid #d8e2dc;
+  border-radius: 12px;
+  background: #fcfdfd;
+  padding: 0 16px;
+  transition: all 0.2s ease;
+}
+
+.loginInputWrapRefined > svg:first-child {
+  color: #93a39f;
+  margin-right: 12px;
+  transition: color 0.2s ease;
+}
+
+.loginInputWrapRefined:focus-within {
+  border-color: #176b5b;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(23, 107, 91, 0.1);
+}
+
+.loginInputWrapRefined:focus-within > svg:first-child {
+  color: #176b5b;
+}
+
+.loginInputWrapRefined input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
+  color: #10201d;
+  height: 100%;
+}
+
+.loginInputWrapRefined input:focus {
+  outline: none;
+}
+
+.loginInputWrapRefined input::placeholder {
+  color: #a8b8b2;
+}
+
+/* Password Toggle Button */
+.passwordToggle {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  margin-left: 8px;
+  color: #93a39f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: auto;
+  border-radius: 6px;
+}
+
+.passwordToggle:hover {
+  color: #176b5b;
+  background: #f0f5f3;
+}
+
+/* Options row */
+.loginOptions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.rememberMe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #52605b;
+  cursor: pointer;
+  margin: 0; /* Override global label margins */
+}
+
+.rememberMe input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: auto;
+  border: 1px solid #c8d4cf;
+  border-radius: 4px;
+  accent-color: #176b5b;
+  cursor: pointer;
+}
+
+.forgotPassword {
+  color: #176b5b;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.forgotPassword:hover {
+  text-decoration: underline;
+}
+
+/* Submit Button */
+.loginSubmitRefined {
+  min-height: 52px;
+  border-radius: 12px;
+  background: #176b5b;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  width: 100%;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+}
+
+.loginSubmitRefined:hover:not(:disabled) {
+  background: #125749;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(23, 107, 91, 0.2);
+}
+
+.loginSubmitRefined:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.loginSubmitRefined:disabled {
+  background: #e0efe8;
+  color: #8db5ab;
+  cursor: not-allowed;
+  opacity: 1; /* Override default opacity since colors are adjusted */
+}
+
+.demoHint {
+  text-align: center;
   font-size: 13px;
-  color: #687873;
+  color: #81918c;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #eff4f2;
 }
 
 /* --- Banner error (top of form) --- */
@@ -172,109 +395,13 @@ th {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #fee2e2;
-  color: #b91c1c;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #fef2f2;
+  color: #991b1b;
   font-size: 13px;
   font-weight: 600;
-  border-left: 3px solid #ef4444;
-}
-
-/* --- Login field with icon prefix --- */
-.loginField {
-  display: grid;
-  gap: 6px;
-}
-
-.loginField > span {
-  font-size: 13px;
-  font-weight: 600;
-  color: #52605b;
-}
-
-.loginInputWrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  min-height: 44px;
-  border: 1px solid #c8d4cf;
-  border-radius: 10px;
-  background: white;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.loginInputWrap svg {
-  flex-shrink: 0;
-  color: #93a39f;
-}
-
-.loginInputWrap input {
-  flex: 1;
-  min-width: 0;
-  min-height: auto;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #172026;
-  font-size: 14px;
-}
-
-.loginInputWrap input:focus {
-  outline: none;
-}
-
-.loginInputWrap input::placeholder {
-  color: #a8b8b2;
-}
-
-.loginInputWrap:focus-within {
-  border-color: #176b5b;
-  box-shadow: 0 0 0 3px rgba(23, 107, 91, 0.12);
-}
-
-/* --- Login submit button --- */
-.loginSubmit {
-  min-height: 44px;
-  border-radius: 10px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
-
-.loginSubmit:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #145c4e;
-  box-shadow: 0 4px 14px rgba(23, 107, 91, 0.28);
-}
-
-.loginSubmit:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-/* --- Spin animation for loader --- */
-.loginSpin {
-  animation: loginSpin 1s linear infinite;
-}
-
-@keyframes loginSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* --- Card entrance animation --- */
-@keyframes loginEnter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  border: 1px solid #f87171;
 }
 
 /* Keep existing panel styles for non-login panels */

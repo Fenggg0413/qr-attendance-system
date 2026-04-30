@@ -46,8 +46,8 @@ test('login protects the portal until credentials are submitted', async () => {
 
   render(<App />);
 
-  expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  expect(screen.getByRole('heading', { name: '智能校园，云端考勤' })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
 
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
   expect(screen.getByText(/张老师/)).toBeInTheDocument();
@@ -70,7 +70,7 @@ test('expired admin session returns to login instead of showing unauthorized das
 
   render(<App />);
 
-  await waitFor(() => expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: '智能校园，云端考勤' })).toBeInTheDocument());
   expect(localStorage.getItem('qr-attendance-session')).toBeNull();
 });
 
@@ -78,7 +78,7 @@ test('teacher can filter courses and open detail tabs', async () => {
   mockTeacherApi();
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
@@ -139,7 +139,7 @@ test('course detail shows course attendance and absence rates averaged by sessio
   });
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '我的课程' }));
@@ -177,7 +177,7 @@ test('teacher starts attendance from today board by slot and ends it from live m
   vi.spyOn(window, 'confirm').mockReturnValue(true);
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await waitFor(() => expect(screen.getByRole('button', { name: /开始考勤/ })).toBeInTheDocument());
@@ -242,7 +242,7 @@ test('today board disables CTA before period and shows running countdown for act
   });
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await waitFor(() => expect(screen.getByText(/距上课/)).toBeInTheDocument());
@@ -275,7 +275,7 @@ test('ended today session shows records even when qr endpoint is gone', async ()
   });
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '查看记录' }));
@@ -288,7 +288,7 @@ test('makeup dialog enforces reason and posts to makeup endpoint', async () => {
   mockTeacherApi({ todayCards: [] });
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: /补考勤/ }));
@@ -322,7 +322,7 @@ test('profile form validates password confirmation and logout returns to login',
   mockTeacherApi();
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '个人中心' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '个人中心' }));
@@ -334,14 +334,14 @@ test('profile form validates password confirmation and logout returns to login',
   expect(screen.getByText('两次输入的新密码不一致')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: '退出登录' }));
-  expect(screen.getByRole('heading', { name: '动态二维码考勤' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '智能校园，云端考勤' })).toBeInTheDocument();
 });
 
 test('teacher reviews student leave declarations from the new portal entry', async () => {
   mockTeacherApi();
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '申报审核' })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '申报审核' }));
@@ -373,7 +373,7 @@ test('admin dashboard and simplified navigation render real overview data', asyn
   mockAdminApi();
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
 
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   expect(screen.getByRole('button', { name: '数据总览' })).toBeInTheDocument();
@@ -404,7 +404,7 @@ test('admin dashboard absence warnings show empty state when no student exceeds 
   mockAdminApi({ absenceWarnings: [] });
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
 
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   expect(screen.getByText('预警提醒')).toBeInTheDocument();
@@ -415,7 +415,7 @@ test('admin can manage classrooms for schedule slot selection', async () => {
   mockAdminApi();
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '教室管理' }));
@@ -442,7 +442,7 @@ test('admin can filter students and open course detail management', async () => 
   mockAdminApi();
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '学生管理' }));
@@ -525,7 +525,7 @@ test('select-all checkbox in student picker dialog', async () => {
   mockAdminApi();
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
@@ -562,7 +562,7 @@ test('admin edits schedule slots in an overlay while keeping the global top bar 
   mockAdminApi();
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
@@ -608,7 +608,7 @@ test('admin student table shows continuous row numbers instead of database ids',
   mockAdminApi({ gappedStudentIds: true });
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '学生管理' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '学生管理' })).toBeInTheDocument());
@@ -627,7 +627,7 @@ test('admin course management uses searchable table and modal creation', async (
   mockAdminApi();
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
 
   await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
@@ -680,7 +680,7 @@ test('admin student table paginates client-side results', async () => {
   mockAdminApi({ manyStudents: true });
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '学生管理' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '学生管理' })).toBeInTheDocument());
@@ -703,7 +703,7 @@ test('admin course detail hides option-loading 404 messages', async () => {
   mockAdminApi({ termsNotFound: true });
 
   render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '课程管理' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '课程管理' })).toBeInTheDocument());
@@ -720,7 +720,7 @@ test('admin teacher management still supports editing basic data', async () => {
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
 
   const { container } = render(<App />);
-  await userEvent.click(screen.getByRole('button', { name: '登录' }));
+  await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: /管理员，您好/ })).toBeInTheDocument());
   await userEvent.click(screen.getByRole('button', { name: '教师管理' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: '教师管理' })).toBeInTheDocument());

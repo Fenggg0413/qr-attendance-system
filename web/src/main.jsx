@@ -12,6 +12,7 @@ import {
   Clock,
   Cloud,
   Download,
+  Eye,
   EyeOff,
   FileText,
   Fullscreen,
@@ -335,6 +336,7 @@ function LoginView({ onLogin }) {
   const [form, setForm] = useState({ username: 'admin', password: 'admin123' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
@@ -350,54 +352,111 @@ function LoginView({ onLogin }) {
   }
 
   return (
-    <main className="login">
-      <form className="loginPanel" onSubmit={submit}>
-        <div className="loginBrand">
-          <div className="loginBrandIcon">
-            <ClipboardCheck size={24} strokeWidth={2.2} />
+    <main className="loginSplitLayout">
+      <section className="loginShowcase">
+        <div className="showcaseContent">
+          <div className="showcaseIconWrapper">
+             <Cloud size={48} strokeWidth={1.5} />
           </div>
-          <h1>校园云考勤系统</h1>
+          <h2>智能校园，云端考勤</h2>
+          <p>
+            全新升级的考勤管理系统。通过动态二维码、实时数据分析和便捷的请假审批流程，
+            让校园管理更加高效、透明。
+          </p>
+          <ul className="featureList">
+            <li><Check size={18}/> <span>毫秒级动态二维码签到</span></li>
+            <li><Check size={18}/> <span>多维度考勤数据可视化</span></li>
+            <li><Check size={18}/> <span>一站式在线申报与审批</span></li>
+          </ul>
         </div>
-        {error && (
-          <div className="loginBannerError">
-            <X size={16} />
-            <span>{error}</span>
+        <div className="showcaseFooter">
+          © 2026 云考勤系统
+        </div>
+      </section>
+
+      <section className="loginFormSection">
+        <form className="loginPanelRefined" onSubmit={submit}>
+          <div className="loginBrandRefined">
+            <h1>欢迎回来</h1>
+            <p>请输入您的账号密码以继续</p>
           </div>
-        )}
-        <label className="loginField">
-          <span>账号</span>
-          <div className="loginInputWrap">
-            <UserRound size={16} />
-            <input
-              value={form.username}
-              placeholder="请输入账号"
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-            />
-          </div>
-        </label>
-        <label className="loginField">
-          <span>密码</span>
-          <div className="loginInputWrap">
-            <KeyRound size={16} />
-            <input
-              type="password"
-              value={form.password}
-              placeholder="请输入密码"
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
-          </div>
-        </label>
-        <button className="loginSubmit" disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 size={18} className="loginSpin" />
-              登录中...
-            </>
-          ) : (
-            '登录'
+          
+          {error && (
+            <div className="loginBannerError" role="alert" aria-live="assertive">
+              <X size={16} />
+              <span>{error}</span>
+            </div>
           )}
-        </button>
-      </form>
+
+          <div className="loginFieldsGroup">
+            <label className="loginFieldRefined" htmlFor="login-username">
+              <span>账号</span>
+              <div className="loginInputWrapRefined">
+                <UserRound size={18} />
+                <input
+                  id="login-username"
+                  name="username"
+                  autoComplete="username"
+                  required
+                  autoFocus
+                  value={form.username}
+                  placeholder="请输入学号或工号"
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                />
+              </div>
+            </label>
+
+            <label className="loginFieldRefined" htmlFor="login-password">
+              <span>密码</span>
+              <div className="loginInputWrapRefined">
+                <KeyRound size={18} />
+                <input
+                  id="login-password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={form.password}
+                  placeholder="请输入密码"
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
+                <button 
+                  type="button" 
+                  className="passwordToggle" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  title={showPassword ? "隐藏密码" : "显示密码"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </label>
+          </div>
+
+          <div className="loginOptions">
+            <label className="rememberMe">
+              <input type="checkbox" name="remember" />
+              <span>保持登录状态</span>
+            </label>
+            <a href="#" className="forgotPassword" onClick={(e) => e.preventDefault()}>忘记密码？</a>
+          </div>
+
+          <button className="loginSubmitRefined" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 size={18} className="loginSpin" />
+                登录中...
+              </>
+            ) : (
+              '登录系统'
+            )}
+          </button>
+          
+          <div className="demoHint">
+            演示账号: admin / admin123
+          </div>
+        </form>
+      </section>
     </main>
   );
 }
