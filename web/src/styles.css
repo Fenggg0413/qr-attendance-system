@@ -101,12 +101,12 @@ th {
   }
 }
 
-/* --- Left Panel: Feature Showcase --- */
+/* --- Left Panel: Premium Showcase --- */
 .loginShowcase {
   display: none;
-  background: #0d1614; /* Deep dark green/black for high contrast professional look */
+  background: #090e0c;
   color: #ffffff;
-  padding: 64px;
+  padding: 48px;
   flex-direction: column;
   justify-content: space-between;
   position: relative;
@@ -119,78 +119,84 @@ th {
   }
 }
 
-/* Subtle decorative pattern for the dark panel */
 .loginShowcase::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle at top right, rgba(23, 107, 91, 0.15), transparent 60%),
-                    radial-gradient(circle at bottom left, rgba(23, 107, 91, 0.1), transparent 50%);
+  top: -20%;
+  left: -10%;
+  width: 70%;
+  height: 70%;
+  background: radial-gradient(circle, rgba(23, 107, 91, 0.35) 0%, transparent 60%);
+  filter: blur(80px);
   pointer-events: none;
+}
+
+.loginShowcase::after {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(46, 208, 176, 0.15) 0%, transparent 60%);
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.showcaseTop {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ffffff;
 }
 
 .showcaseContent {
   position: relative;
   z-index: 1;
-  max-width: 480px;
-  margin-top: 10vh;
-}
-
-.showcaseIconWrapper {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  background: rgba(23, 107, 91, 0.2);
-  border: 1px solid rgba(23, 107, 91, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #2ed0b0;
-  margin-bottom: 32px;
+  max-width: 520px;
+  margin-top: -10vh;
 }
 
 .showcaseContent h2 {
-  font-size: 42px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  line-height: 1.1;
-  margin: 0 0 24px;
+  font-size: clamp(48px, 5vw, 64px);
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  line-height: 1.15;
+  margin: 0 0 32px;
   color: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #aab8b4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.showcaseLine {
+  width: 48px;
+  height: 4px;
+  background: #176b5b;
+  margin-bottom: 32px;
+  border-radius: 2px;
 }
 
 .showcaseContent p {
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.6;
-  color: #9bb5af;
-  margin: 0 0 40px;
-}
-
-.featureList {
-  list-style: none;
-  padding: 0;
+  color: #8a9c97;
   margin: 0;
-  display: grid;
-  gap: 20px;
-}
-
-.featureList li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 15px;
-  color: #c4d6d1;
-}
-
-.featureList li svg {
-  color: #2ed0b0;
-  flex-shrink: 0;
+  font-weight: 300;
+  letter-spacing: 0.5px;
 }
 
 .showcaseFooter {
   position: relative;
   z-index: 1;
   font-size: 13px;
-  color: #5c756e;
+  color: #4a5c57;
+  letter-spacing: 1px;
 }
 
 /* --- Right Panel: Form Section --- */

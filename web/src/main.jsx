@@ -354,23 +354,23 @@ function LoginView({ onLogin }) {
   return (
     <main className="loginSplitLayout">
       <section className="loginShowcase">
+        <div className="showcaseTop">
+          <Cloud size={24} strokeWidth={2.5} />
+          <span>云考勤系统</span>
+        </div>
         <div className="showcaseContent">
-          <div className="showcaseIconWrapper">
-             <Cloud size={48} strokeWidth={1.5} />
-          </div>
-          <h2>智能校园，云端考勤</h2>
+          <h2>
+            构建无感<br />
+            数字校园
+          </h2>
+          <div className="showcaseLine"></div>
           <p>
-            全新升级的考勤管理系统。通过动态二维码、实时数据分析和便捷的请假审批流程，
-            让校园管理更加高效、透明。
+            Millisecond-level dynamic QR attendance.<br />
+            Empowering the next generation of education.
           </p>
-          <ul className="featureList">
-            <li><Check size={18}/> <span>毫秒级动态二维码签到</span></li>
-            <li><Check size={18}/> <span>多维度考勤数据可视化</span></li>
-            <li><Check size={18}/> <span>一站式在线申报与审批</span></li>
-          </ul>
         </div>
         <div className="showcaseFooter">
-          © 2026 云考勤系统
+          © 2026 QR Attendance System.
         </div>
       </section>
 
