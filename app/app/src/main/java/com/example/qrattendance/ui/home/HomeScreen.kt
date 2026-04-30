@@ -66,7 +66,7 @@ fun HomeScreen(onOpenScan: () -> Unit) {
       EmptyState(state.error ?: "加载失败")
     } else {
       val dashboard = state.dashboard
-      LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
           Banner(
             title = "${container.sessionStore.current()?.displayName ?: "同学"}，加油！",

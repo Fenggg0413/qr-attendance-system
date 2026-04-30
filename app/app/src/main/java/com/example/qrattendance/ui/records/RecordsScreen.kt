@@ -59,7 +59,7 @@ fun RecordsScreen() {
       onSelected = { label -> vm.setFilter(RecordFilter.entries.first { it.label == label }) },
       modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
-    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
       if (visible.isEmpty()) item { EmptyState("暂无考勤记录") }
       visible.groupBy { labelFor(it.checkedInAt) }.forEach { (label, records) ->
         item { SectionHeader(label) }
