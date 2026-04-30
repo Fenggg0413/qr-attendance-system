@@ -65,14 +65,14 @@ public class StudentController {
         "INSERT INTO attendance_records(session_id, student_id, status, checked_in_at, source) VALUES (?, ?, ?, ?, ?)",
         sessionId, studentId, "PRESENT", now, "QR");
     long id = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
-    return Map.of("record", Map.of("id", id, "session_id", sessionId, "status", "PRESENT", "checked_in_at", now), "duplicate", false);
+    return Map.of("record", Map.of("id", id, "sessionId", sessionId, "status", "PRESENT", "checkedInAt", now), "duplicate", false);
   }
 
   @GetMapping("/attendance-records")
   public List<Map<String, Object>> records() {
     long studentId = studentId();
     return jdbc.queryForList(
-        "SELECT ar.id, ar.session_id, co.name course_name, ar.status, ar.checked_in_at, ar.source FROM attendance_records ar JOIN attendance_sessions se ON se.id = ar.session_id JOIN courses co ON co.id = se.course_id WHERE ar.student_id = ? ORDER BY ar.id DESC",
+        "SELECT ar.id, ar.session_id sessionId, co.name courseName, ar.status, ar.checked_in_at checkedInAt, ar.source FROM attendance_records ar JOIN attendance_sessions se ON se.id = ar.session_id JOIN courses co ON co.id = se.course_id WHERE ar.student_id = ? ORDER BY ar.id DESC",
         studentId);
   }
 
