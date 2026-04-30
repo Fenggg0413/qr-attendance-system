@@ -17,6 +17,7 @@ import {
   Fullscreen,
   KeyRound,
   Landmark,
+  Loader2,
   LogOut,
   Maximize2,
   Menu,
@@ -351,18 +352,51 @@ function LoginView({ onLogin }) {
   return (
     <main className="login">
       <form className="loginPanel" onSubmit={submit}>
-        <h1>动态二维码考勤</h1>
-        <label>
-          账号
-          <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} />
+        <div className="loginBrand">
+          <div className="loginBrandIcon">
+            <ClipboardCheck size={24} strokeWidth={2.2} />
+          </div>
+          <h1>校园云考勤系统</h1>
+        </div>
+        {error && (
+          <div className="loginBannerError">
+            <X size={16} />
+            <span>{error}</span>
+          </div>
+        )}
+        <label className="loginField">
+          <span>账号</span>
+          <div className="loginInputWrap">
+            <UserRound size={16} />
+            <input
+              value={form.username}
+              placeholder="请输入账号"
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            />
+          </div>
         </label>
-        <label>
-          密码
-          <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <label className="loginField">
+          <span>密码</span>
+          <div className="loginInputWrap">
+            <KeyRound size={16} />
+            <input
+              type="password"
+              value={form.password}
+              placeholder="请输入密码"
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
         </label>
-        {error && <div className="error">{error}</div>}
-        <button disabled={loading}>{loading ? '登录中' : '登录'}</button>
-        <p className="hint">默认账号：管理员 admin/admin123</p>
+        <button className="loginSubmit" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 size={18} className="loginSpin" />
+              登录中...
+            </>
+          ) : (
+            '登录'
+          )}
+        </button>
       </form>
     </main>
   );
