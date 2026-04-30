@@ -152,7 +152,6 @@ private fun ScanChrome(message: String, onClose: () -> Unit) {
     Text(message, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.padding(top = 24.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
       Text("扫码签到", color = Color.White, modifier = Modifier.background(Primary, RoundedCornerShape(20.dp)).padding(horizontal = 20.dp, vertical = 8.dp))
-      Text("我的二维码", color = Color.White.copy(alpha = 0.45f), modifier = Modifier.border(BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)), RoundedCornerShape(20.dp)).padding(horizontal = 20.dp, vertical = 8.dp))
     }
   }
 }
