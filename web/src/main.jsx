@@ -1256,15 +1256,15 @@ function AttendanceModal({ client, session, headline, subline, onClose, onClosed
           </div>
           {!ended && <div className="qrFullscreenRefresh">{qrRefresh > 0 ? `刷新倒计时 ${qrRefresh}s` : '刷新中…'}</div>}
           <div className="qrQuietZone">
-            <QRCodeSVG value={qr.payload} size={Math.min(520, typeof window !== 'undefined' ? window.innerWidth * 0.6 : 400)} level="M" />
+            <QRCodeSVG value={qr.payload} size={Math.min(520, typeof window !== 'undefined' ? window.innerWidth * 0.6 : 400, typeof window !== 'undefined' ? window.innerHeight * 0.45 : 400)} level="M" />
           </div>
           <div className="qrFullscreenStats">
             已签到 {presentCount} / {totalCount} 人
           </div>
-          <button className="qrFullscreenExit" onClick={() => setFullscreen(false)}>
-            <Minimize2 size={18} />退出全屏
-          </button>
         </div>
+        <button className="qrFullscreenExit" onClick={() => setFullscreen(false)}>
+          <Minimize2 size={18} />退出全屏
+        </button>
       </div>
     );
   }
