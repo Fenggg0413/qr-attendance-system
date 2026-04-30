@@ -219,20 +219,22 @@ public class StudentController {
         "todaySessions",
         todaySessions.stream()
             .map(
-                row ->
-                    Map.<String, Object>ofEntries(
-                        Map.entry("id", row.get("id") == null ? 0 : row.get("id")),
-                        Map.entry("slotId", row.get("slotId")),
-                        Map.entry("period", row.get("period")),
-                        Map.entry("courseId", row.get("courseId")),
-                        Map.entry("courseName", row.get("courseName")),
-                        Map.entry("classroomName", row.get("classroomName")),
-                        Map.entry("startedAt", row.get("startedAt") == null ? "" : row.get("startedAt")),
-                        Map.entry("endsAt", row.get("endsAt") == null ? "" : row.get("endsAt")),
-                        Map.entry("status", row.get("status") == null ? "" : row.get("status")),
-                        Map.entry("method", row.get("method") == null ? "QR" : row.get("method")),
-                        Map.entry("recordStatus", row.get("recordStatus")),
-                        Map.entry("hasLeave", asBoolean(row.get("hasLeave")))))
+                row -> {
+                    Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("id", row.get("id") == null ? 0 : row.get("id"));
+                    map.put("slotId", row.get("slotId"));
+                    map.put("period", row.get("period"));
+                    map.put("courseId", row.get("courseId"));
+                    map.put("courseName", row.get("courseName"));
+                    map.put("classroomName", row.get("classroomName") == null ? "" : row.get("classroomName"));
+                    map.put("startedAt", row.get("startedAt") == null ? "" : row.get("startedAt"));
+                    map.put("endsAt", row.get("endsAt") == null ? "" : row.get("endsAt"));
+                    map.put("status", row.get("status") == null ? "" : row.get("status"));
+                    map.put("method", row.get("method") == null ? "QR" : row.get("method"));
+                    map.put("recordStatus", row.get("recordStatus") == null ? "" : row.get("recordStatus"));
+                    map.put("hasLeave", asBoolean(row.get("hasLeave")));
+                    return map;
+                })
             .toList());
   }
 
