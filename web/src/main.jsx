@@ -418,6 +418,13 @@ function LoginView({ onLogin }) {
             <input type="checkbox" name="remember" />
             <span>保持登录状态</span>
           </label>
+          <button
+            type="button"
+            className="forgotPassword"
+            onClick={() => alert('请联系系统管理员重置密码。')}
+          >
+            忘记密码？
+          </button>
         </div>
 
         <button className="loginSubmit" disabled={loading}>
@@ -427,7 +434,7 @@ function LoginView({ onLogin }) {
               登录中...
             </>
           ) : (
-            '登录'
+            '登录系统'
           )}
         </button>
       </form>

@@ -46,7 +46,7 @@ test('login protects the portal until credentials are submitted', async () => {
 
   render(<App />);
 
-  expect(screen.getByRole('heading', { name: /构建无感/ })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /校园云考勤系统/ })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '登录系统' }));
 
   await waitFor(() => expect(screen.getByRole('heading', { name: '今日课表' })).toBeInTheDocument());
@@ -70,7 +70,7 @@ test('expired admin session returns to login instead of showing unauthorized das
 
   render(<App />);
 
-  await waitFor(() => expect(screen.getByRole('heading', { name: /构建无感/ })).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('heading', { name: /校园云考勤系统/ })).toBeInTheDocument());
   expect(localStorage.getItem('qr-attendance-session')).toBeNull();
 });
 
@@ -334,7 +334,7 @@ test('profile form validates password confirmation and logout returns to login',
   expect(screen.getByText('两次输入的新密码不一致')).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole('button', { name: '退出登录' }));
-  expect(screen.getByRole('heading', { name: /构建无感/ })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: /校园云考勤系统/ })).toBeInTheDocument();
 });
 
 test('teacher reviews student leave declarations from the new portal entry', async () => {
