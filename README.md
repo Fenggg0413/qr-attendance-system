@@ -1,7 +1,8 @@
 # 动态二维码考勤系统
 
 基于 HMAC 时间窗口动态二维码的多角色考勤系统，由 Spring Boot 后端、React 管理端与 Android 学生端三个模块构成。
-<img width="3164" height="2070" alt="image" src="https://github.com/user-attachments/assets/e5c1fc1a-a6aa-48ba-b7f1-855ebd4808df" />
+
+<img width="1470" height="835" alt="Dashboard" src="https://github.com/user-attachments/assets/cf6421ff-6010-41cf-a3c0-eede8d3b41c9" />
 
 
 ## 系统架构
