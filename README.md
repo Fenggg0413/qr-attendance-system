@@ -1,10 +1,8 @@
 # 动态二维码考勤系统
 
 基于 HMAC 时间窗口动态二维码的多角色考勤系统，由 Spring Boot 后端、React 管理端与 Android 学生端三个模块构成。
+<img width="3164" height="2070" alt="image" src="https://github.com/user-attachments/assets/e5c1fc1a-a6aa-48ba-b7f1-855ebd4808df" />
 
-## 解决的问题
-
-传统静态二维码考勤中，学生截屏转发二维码即可实现远程代签，失去考勤的防伪意义。本系统通过 **10 秒时间窗口 + HMAC-SHA256 动态令牌** 机制，使二维码内容每 10 秒自动刷新，验证过程无需在服务端存储令牌状态，从原理上杜绝截屏代签行为。
 
 ## 系统架构
 
@@ -93,17 +91,9 @@ cd web && npm test
 cd app && GRADLE_USER_HOME=/tmp/dynamic_qr_attendance_gradle ./gradlew :app:testDebugUnitTest
 ```
 
-## 核心设计
-
-**动态二维码防伪机制：** `QrTokenService` 将当前 10 秒时间窗口与会话 ID 组合后计算 HMAC-SHA256，生成动态令牌。验证端对同一时间窗口重新计算 HMAC 进行比对，无需存储令牌——只要时间窗口过期，旧二维码即失效，从根本上防止截屏转发。
-
-**无 ORM + 薄服务层：** 后端使用原生 `JdbcTemplate` 直接操作 SQLite，业务逻辑集中在按角色拆分的 Controller 中（AdminController / TeacherController / StudentController）。这是有意为之的架构选择，而非临时方案。
-
-**无框架前端：** Web 端单文件 React 应用（`main.jsx`），无路由库、无状态管理库，纯 `useState`/`useContext` 驱动，`localStorage` 管理会话。
-
 ## 技术栈
 
-| 层 | 技术 |
+| 架构层 | 技术 |
 |----|------|
 | 后端框架 | Spring Boot 3.3.6 |
 | 数据库 | SQLite |
