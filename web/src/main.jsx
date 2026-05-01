@@ -67,6 +67,14 @@ import {
 } from './utils/filters';
 import { adminFieldValue, emptyAdminForm, normalizeAdminForm } from './utils/adminForm';
 import { useTableSort } from './hooks/useTableSort';
+import { TopBar } from './components/TopBar';
+import { StatCard } from './components/StatCard';
+import { AdminPageHead } from './components/AdminPageHead';
+import { AdminPagination } from './components/AdminPagination';
+import { AdminTableToolbar } from './components/AdminTableToolbar';
+import { SortableTableHeader } from './components/SortableTableHeader';
+import { AdminDataTable } from './components/AdminDataTable';
+import { AdminResourceFormDialog } from './components/AdminResourceFormDialog';
 
 function App() {
   const [session, setSession] = useState(() => {
@@ -172,59 +180,6 @@ function App() {
           <AdminPortal session={session} view={adminView} setBreadcrumb={setBreadcrumb} logout={logout} />
         )}
       </main>
-    </div>
-  );
-}
-
-function TopBar({ breadcrumb, collapsed, onToggleSide, onLogout }) {
-  const [noticeOpen, setNoticeOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  async function toggleFullScreen() {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      await document.documentElement.requestFullscreen();
-    } else if (document.exitFullscreen) {
-      await document.exitFullscreen();
-    }
-  }
-
-  return (
-    <div className="topBar">
-      <div className="topLeft">
-        <button className="iconButton" onClick={onToggleSide} aria-label={collapsed ? '展开侧栏' : '折叠侧栏'}>
-          <Menu size={18} />
-        </button>
-        <div className="breadcrumb">
-          {breadcrumb.map((item, index) => (
-            <React.Fragment key={`${item}-${index}`}>
-              {index > 0 && <b>/</b>}
-              <span className={index === breadcrumb.length - 1 ? 'current' : ''}>{item}</span>
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
-      <div className="topActions">
-        <button className="iconButton" onClick={toggleFullScreen} aria-label="全屏">
-          <Fullscreen size={17} />
-        </button>
-        <div className="popoverWrap">
-          <button className="iconButton" onClick={() => setNoticeOpen((value) => !value)} aria-label="通知">
-            <Bell size={17} />
-            <i className="dot" />
-          </button>
-          {noticeOpen && <div className="miniPopover">暂无新的系统通知</div>}
-        </div>
-        <div className="popoverWrap">
-          <button className="avatarButton" onClick={() => setMenuOpen((value) => !value)} aria-label="头像菜单">
-            <UserRound size={17} />
-          </button>
-          {menuOpen && (
-            <div className="miniPopover menuPopover">
-              <button className="plainAction" onClick={onLogout}><LogOut size={15} />退出登录</button>
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -1381,18 +1336,6 @@ function TeacherProfile({ client, logout }) {
           {message && <div className="success">{message}</div>}
         </form>
       </section>
-    </div>
-  );
-}
-
-function StatCard({ icon, value, label }) {
-  return (
-    <div className="statCard">
-      <span className="statIcon">{icon}</span>
-      <div>
-        <strong>{value}</strong>
-        <p>{label}</p>
-      </div>
     </div>
   );
 }
@@ -3046,21 +2989,6 @@ function AdminResourcePage({ client, config }) {
   );
 }
 
-function AdminPageHead({ title, subtitle, icon, count, onRefresh }) {
-  return (
-    <section className="pageHead adminHead">
-      <div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
-      </div>
-      <div className="summaryStrip">
-        {count !== undefined && <span>{icon}{count} 条</span>}
-        <button className="ghost" onClick={onRefresh}><RefreshCw size={16} />刷新</button>
-      </div>
-    </section>
-  );
-}
-
 function StudentTableHeader({ filters, onFilters, departments, grades, total, onApply, onReset, onCreate }) {
   return (
     <div className="studentTableHeader">
@@ -3230,88 +3158,6 @@ function ClassroomFormDialog({ title, form, buildings, isEdit, onForm, onSubmit,
           <div className="formActions dialogActions">
             <button type="button" className="ghost" onClick={onClose}>取消</button>
             <button type="submit"><Save size={16} />{isEdit ? '保存' : '确定'}</button>
-          </div>
-        </form>
-      </section>
-    </div>
-  );
-}
-
-const gradeYearOptions = (() => {
-  const current = new Date().getFullYear();
-  return Array.from({ length: 8 }, (_, i) => current - i);
-})();
-
-const fieldPlaceholders = {
-  name: '请输入姓名',
-  username: '请输入登录账号',
-  password: '留空则使用默认密码 (123456)',
-  studentNo: '请输入学号',
-  departmentId: '请选择所属院系',
-};
-
-const requiredFields = new Set(['name', 'username', 'studentNo', 'departmentId', 'grade']);
-
-function AdminResourceFormDialog({ title, fields, form, departments, submitLabel, onForm, onSubmit, onClose }) {
-  const resourceName = title.includes('教师') ? '教师' : title.includes('教室') ? '教室' : '学生';
-  // Determine if the last non-action field is odd-positioned (needs full-width)
-  const lastFieldIdx = fields.length - 1;
-  const lastFieldIsOdd = fields.length % 2 === 1;
-  return (
-    <div className="modalLayer">
-      <section className="modal adminResourceDialog" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="modalHead">
-          <div>
-            <h2>{title}</h2>
-            <p>填写{resourceName}基础信息后保存。</p>
-          </div>
-          <button type="button" className="iconButton" onClick={onClose} aria-label={`关闭${title}`}><X size={18} /></button>
-        </div>
-        <form className="modalBody adminResourceForm" onSubmit={onSubmit}>
-          {fields.map(([name, label, meta = {}], idx) => {
-            const isRequired = meta.required ?? requiredFields.has(name);
-            const placeholder = meta.placeholder ?? fieldPlaceholders[name] ?? '';
-            const isFullWidth = lastFieldIsOdd && idx === lastFieldIdx;
-            return (
-              <label key={name} className={isFullWidth ? 'fullWidthField' : ''}>
-                <span className="requiredLabel">
-                  {isRequired && <i>*</i>}{label}
-                </span>
-                {name === 'departmentId' ? (
-                  <select
-                    value={form[name] ?? ''}
-                    required={isRequired}
-                    onChange={(event) => onForm({ ...form, [name]: event.target.value })}
-                  >
-                    <option value="">请选择所属院系</option>
-                    {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-                  </select>
-                ) : (meta.type === 'year' || name === 'grade') ? (
-                  <select
-                    value={form[name] ?? ''}
-                    required={isRequired}
-                    onChange={(event) => onForm({ ...form, [name]: event.target.value })}
-                  >
-                    <option value="">请选择入学年份</option>
-                    {gradeYearOptions.map((year) => (
-                      <option key={year} value={String(year)}>{year} 级</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={name === 'password' ? 'text' : 'text'}
-                    placeholder={placeholder}
-                    required={isRequired}
-                    value={form[name] ?? ''}
-                    onChange={(event) => onForm({ ...form, [name]: event.target.value })}
-                  />
-                )}
-              </label>
-            );
-          })}
-          <div className="formActions dialogActions">
-            <button type="button" className="ghost" onClick={onClose}>取消</button>
-            <button type="submit">确定</button>
           </div>
         </form>
       </section>
@@ -3535,124 +3381,6 @@ function AdminDepartmentsPage({ client }) {
           </section>
         </div>
       )}
-    </div>
-  );
-}
-
-function AdminPagination({ total, page, totalPages, pageSize, onPage, onPageSize }) {
-  return (
-    <div className="adminPagination">
-      <span>共 {total} 条</span>
-      <label>
-        每页条数
-        <select value={pageSize} onChange={(event) => onPageSize(Number(event.target.value))}>
-          {[10, 20, 50].map((size) => <option key={size} value={size}>{size}</option>)}
-        </select>
-      </label>
-      <button type="button" className="ghost" disabled={page <= 1} onClick={() => onPage(Math.max(1, page - 1))}>上一页</button>
-      <strong>第 {page} / {totalPages} 页</strong>
-      <button type="button" className="ghost" disabled={page >= totalPages} onClick={() => onPage(Math.min(totalPages, page + 1))}>下一页</button>
-    </div>
-  );
-}
-
-function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter, onDepartmentFilter, grades = [], gradeFilter, onGradeFilter }) {
-  return (
-    <section className="adminTableToolbar panel">
-      <label className="searchField">
-        搜索
-        <span>
-          <Search size={16} />
-          <input placeholder="搜索当前表格" value={query} onChange={(event) => onQuery(event.target.value)} />
-        </span>
-      </label>
-      {departments.length > 0 && (
-        <label>
-          院系
-          <select value={departmentFilter} onChange={(event) => onDepartmentFilter(event.target.value)}>
-            <option>全部院系</option>
-            {departments.map((department) => <option key={department.id}>{department.name}</option>)}
-          </select>
-        </label>
-      )}
-      {grades.length > 0 && (
-        <label>
-          年级
-          <select value={gradeFilter} onChange={(event) => onGradeFilter(event.target.value)}>
-            {grades.map((grade) => <option key={grade}>{grade}</option>)}
-          </select>
-        </label>
-      )}
-    </section>
-  );
-}
-
-function SortableTableHeader({ label, column, sortColumn, sortDirection, onSort }) {
-  const isSorted = sortColumn === column;
-  return (
-    <th className="sortable" aria-sort={sortableAriaSort(column, sortColumn, sortDirection)}>
-      <button type="button" className="sortButton" onClick={() => onSort(column)}>
-        <span className="thContent">
-          {label}
-          <span className={`sortIcon ${isSorted ? 'active' : ''}`} aria-hidden="true">
-            {isSorted ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-          </span>
-        </span>
-      </button>
-    </th>
-  );
-}
-
-function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '', onEdit, onDelete, onResetPassword, header = null, footer = null, sortColumn, sortDirection, onSort }) {
-  const hasActions = Boolean(onEdit || onDelete || onResetPassword);
-  return (
-    <div className="panel adminTablePanel">
-      {header}
-      <div className="tableWrap">
-        <table className="adminTable">
-          <thead>
-            <tr>
-              {columns.map((column) => {
-                const canSort = column !== 'display_index' && onSort;
-                const label = labels[column] ?? adminLabels[column] ?? column;
-                if (canSort) {
-                  return (
-                    <SortableTableHeader
-                      key={column}
-                      label={label}
-                      column={column}
-                      sortColumn={sortColumn}
-                      sortDirection={sortDirection}
-                      onSort={onSort}
-                    />
-                  );
-                }
-                return <th key={column}>{label}</th>;
-              })}
-              {hasActions && <th>操作</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={columns.length + (hasActions ? 1 : 0)}>加载中</td></tr>}
-            {!loading && rows.map((row) => (
-              <tr key={row.id ?? `${row.session_id}-${displayAdminRow(row)}`}>
-                {columns.map((column) => <td key={column}>{formatAdminCell(row, column)}</td>)}
-                {hasActions && (
-                  <td>
-                    <div className="actions">
-                      {onEdit && <button type="button" className="ghost" aria-label={`编辑 ${resourceTitle} ${displayAdminRow(row)}`} onClick={() => onEdit(row)}><PenLine size={15} />编辑</button>}
-                      {onResetPassword && <button type="button" className="ghost" aria-label={`重置密码 ${resourceTitle} ${displayAdminRow(row)}`} onClick={() => onResetPassword(row)}><KeyRound size={15} />重置密码</button>}
-                      {onDelete && <button type="button" className="ghost" aria-label={`删除 ${resourceTitle} ${displayAdminRow(row)}`} onClick={() => onDelete(row.id)}><X size={15} />删除</button>}
-                    </div>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {!loading && !rows.length && <tr><td colSpan={columns.length + (hasActions ? 1 : 0)}>暂无数据</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {footer}
     </div>
   );
 }
