@@ -80,6 +80,9 @@ import { AttendanceModal } from './features/teacher/AttendanceModal';
 import { MakeupDialog } from './features/teacher/MakeupDialog';
 import { RecordsDrawer } from './features/teacher/RecordsDrawer';
 import { RecordsTable } from './features/teacher/RecordsTable';
+import { SessionsTable } from './features/teacher/SessionsTable';
+import { StudentsPanel } from './features/teacher/StudentsPanel';
+import { VisualPanel } from './features/teacher/VisualPanel';
 
 function App() {
   const [session, setSession] = useState(() => {
@@ -479,156 +482,6 @@ function CourseDetail({ client, course, sessions, students, activeTab, loading, 
         <VisualPanel sessions={sessions} latest={latest} students={students} />
       )}
     </div>
-  );
-}
-
-function SessionsTable({ sessions, onOpenRecords, onDelete }) {
-  if (!sessions.length) return <div className="empty">暂无考勤记录</div>;
-  return (
-    <div className="tableWrap">
-      <table>
-        <thead>
-          <tr>
-            <th>开始时间</th>
-            <th>方式</th>
-            <th>状态</th>
-            <th>已到</th>
-            <th>缺勤</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sessions.map((row) => (
-            <tr key={row.id}>
-              <td>{formatDate(row.started_at)}</td>
-              <td>{methodText(row.method)}</td>
-              <td><span className={`pill ${row.status === 'OPEN' ? 'live' : ''}`}>{statusText(row.status)}</span></td>
-              <td>{row.present_count ?? 0}</td>
-              <td>{row.absent_count ?? 0}</td>
-              <td>
-                <div className="actions">
-                  <button className="ghost" onClick={() => onOpenRecords(row)}>查看明细</button>
-                  {onDelete && (
-                    <button className="ghost danger" onClick={() => { if (window.confirm('确定删除该考勤记录？删除后不可恢复。')) onDelete(row.id); }}>
-                    <Trash2 size={14} />删除
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function StudentsPanel({ client, students, onStudentsChange }) {
-  const [savingId, setSavingId] = useState(null);
-  const [keyword, setKeyword] = useState('');
-  const sorted = [...students].sort((a, b) => `${a.student_no}${a.name}`.localeCompare(`${b.student_no}${b.name}`, 'zh-Hans-CN'));
-  const normalized = keyword.trim().toLowerCase();
-  const filtered = normalized ? sorted.filter((s) => s.name.toLowerCase().includes(normalized) || s.student_no.toLowerCase().includes(normalized)) : sorted;
-
-  async function save(student) {
-    setSavingId(student.id);
-    const saved = await client.put(`/teacher/students/${student.id}/note`, { note: student.note ?? '' });
-    onStudentsChange(students.map((item) => (item.id === student.id ? { ...item, note: saved.note, saved: true } : item)));
-    setSavingId(null);
-  }
-
-  return (
-    <section className="panel">
-      <div className="panelHead">
-        <h2><UsersRound size={17} />学生名单管理</h2>
-        <div className="panelHeadRight">
-          <label className="searchField compact">
-            <span>
-              <Search size={15} />
-              <input placeholder="搜索姓名或学号" value={keyword} onChange={(e) => setKeyword(e.target.value)} />
-            </span>
-          </label>
-          <span className="muted">{filtered.length} / {students.length} 人</span>
-        </div>
-      </div>
-      <div className="tableWrap">
-        <table>
-          <thead>
-            <tr>
-              <th>学号</th>
-              <th>姓名</th>
-              <th>教师备注</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((student) => (
-              <tr key={student.id}>
-                <td>{student.student_no}</td>
-                <td>{student.name}</td>
-                <td>
-                  <input
-                    value={student.note ?? ''}
-                    onChange={(event) => {
-                      onStudentsChange(students.map((item) => (item.id === student.id ? { ...item, note: event.target.value, saved: false } : item)));
-                    }}
-                  />
-                </td>
-                <td>
-                  <button className="ghost" disabled={savingId === student.id} onClick={() => save(student)}>
-                    <Save size={15} />{student.saved ? '已保存' : '保存'}
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {!filtered.length && <tr><td colSpan="4" className="empty">没有匹配的学生</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function VisualPanel({ sessions, students }) {
-  const riskRows = students.length ? students : [{ id: 'empty', name: '暂无学生', student_no: '-', risk: 0 }];
-  return (
-    <section className="visualGrid">
-      <div className="panel">
-        <div className="panelHead">
-          <h2><BarChart3 size={17} />出勤率趋势</h2>
-          <span className="muted">最近 {Math.min(sessions.length, 6)} 次</span>
-        </div>
-        <div className="trendBars">
-          {sessions.slice(0, 6).reverse().map((session) => {
-            const total = Number(session.total_count ?? 0);
-            const rate = total ? Math.round((Number(session.present_count ?? 0) / total) * 100) : 0;
-            return (
-              <div className="trendItem" key={session.id}>
-                <i style={{ height: `${Math.max(8, rate)}%` }} />
-                <span>{rate}%</span>
-              </div>
-            );
-          })}
-          {!sessions.length && <p className="hint">暂无趋势数据</p>}
-        </div>
-      </div>
-      <div className="panel">
-        <div className="panelHead">
-          <h2>高风险缺勤学生排行</h2>
-          <span className="muted">按学号近似排序</span>
-        </div>
-        <div className="riskList">
-          {riskRows.slice(0, 5).map((student, index) => (
-            <div className="riskRow" key={student.id}>
-              <span>{index + 1}</span>
-              <strong>{student.name}</strong>
-              <em>{student.student_no}</em>
-              <b style={{ width: `${Math.max(12, 72 - index * 12)}%` }} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
