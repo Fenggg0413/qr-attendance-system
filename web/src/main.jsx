@@ -37,85 +37,8 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import './styles.css';
 import { api, ApiError } from './services/api';
-
-const adminResources = {
-  students: {
-    title: '学生管理',
-    endpoint: '/admin/students',
-    icon: UserRound,
-    fields: [
-      ['name', '姓名', { required: true, placeholder: '请输入学生姓名' }],
-      ['username', '账号', { required: true, placeholder: '请输入登录账号' }],
-      ['password', '初始密码', { placeholder: '留空则使用默认密码 (123456)' }],
-      ['studentNo', '学号', { required: true, placeholder: '请输入学号' }],
-      ['grade', '年级', { required: true, type: 'year' }],
-      ['departmentId', '所属院系', { required: true }],
-    ],
-    columns: ['display_index', 'name', 'username', 'student_no', 'department_name', 'grade'],
-  },
-  teachers: {
-    title: '教师管理',
-    endpoint: '/admin/teachers',
-    icon: UsersRound,
-    fields: [
-      ['name', '姓名', { required: true, placeholder: '请输入教师姓名' }],
-      ['username', '账号', { required: true, placeholder: '请输入登录账号' }],
-      ['password', '初始密码', { placeholder: '留空则使用默认密码 (123456)' }],
-      ['departmentId', '所属院系', { required: true }],
-    ],
-    columns: ['display_index', 'name', 'username', 'department_name'],
-  },
-  classrooms: {
-    title: '教室管理',
-    endpoint: '/admin/classrooms',
-    icon: Building2,
-    fields: [
-      ['name', '教室名称'],
-      ['building', '教学楼'],
-      ['capacity', '容量'],
-    ],
-    columns: ['display_index', 'name', 'building', 'capacity'],
-    labels: { name: '教室名称' },
-  },
-};
-
-const adminNav = [
-  ['dashboard', '数据总览', BarChart3],
-  ['students', '学生管理', UserRound],
-  ['teachers', '教师管理', UsersRound],
-  ['classrooms', '教室管理', Building2],
-  ['courses', '课程管理', BookOpen],
-  ['departments', '院系管理', Landmark],
-];
-
-const adminLabels = {
-  id: 'ID',
-  display_index: '序号',
-  name: '姓名',
-  username: '账号',
-  department: '院系',
-  department_name: '所属院系',
-  student_no: '学号',
-  class_name: '班级',
-  grade: '年级',
-  code: '课程代码',
-  course_name: '课程',
-  teacher_name: '教师',
-  term: '学期',
-  building: '教学楼',
-  capacity: '容量',
-  student_name: '学生',
-  source: '来源',
-  status: '状态',
-  checked_in_at: '签到时间',
-  session_id: '场次',
-  total: '应到',
-  present: '已到',
-  excused: '请假',
-  absent: '缺勤',
-  reason: '原因',
-  created_at: '提交时间',
-};
+import { adminLabels, adminNav, adminResources } from './constants/adminResources';
+import { fallbackTerms, schedulePeriods, scheduleWeekDays, weekDays } from './constants/schedule';
 
 function roleText(role) {
   return { ADMIN: '管理员', TEACHER: '教师', STUDENT: '学生' }[role] ?? '未知角色';
@@ -150,26 +73,6 @@ function courseNameText(name) {
 function teacherOptionText(teacher) {
   return `${teacher.name}（${teacher.username ?? `ID ${teacher.id}`}） · ${teacher.department_name ?? teacher.department ?? '未设置院系'}`;
 }
-
-const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-const scheduleWeekDays = weekDays.slice(0, 5);
-const schedulePeriods = [
-  { period: 1, time: '08:00\n08:45' },
-  { period: 2, time: '08:50\n09:35' },
-  { period: 3, time: '09:50\n10:35' },
-  { period: 4, time: '10:40\n11:25' },
-  { period: 5, time: '11:30\n12:15' },
-  { period: 6, time: '13:45\n14:30' },
-  { period: 7, time: '14:35\n15:20' },
-  { period: 8, time: '15:35\n16:20' },
-  { period: 9, time: '16:25\n17:10' },
-];
-const fallbackTerms = [
-  { value: '2025-2026学年 秋季学期', label: '2025-2026学年 秋季学期' },
-  { value: '2025-2026学年 春季学期', label: '2025-2026学年 春季学期' },
-  { value: '2026-2027学年 秋季学期', label: '2026-2027学年 秋季学期' },
-  { value: '2026-2027学年 春季学期', label: '2026-2027学年 春季学期' },
-];
 
 function App() {
   const [session, setSession] = useState(() => {
