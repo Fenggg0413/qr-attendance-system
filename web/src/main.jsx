@@ -39,40 +39,33 @@ import './styles.css';
 import { api, ApiError } from './services/api';
 import { adminLabels, adminNav, adminResources } from './constants/adminResources';
 import { fallbackTerms, schedulePeriods, scheduleWeekDays, weekDays } from './constants/schedule';
-
-function roleText(role) {
-  return { ADMIN: '管理员', TEACHER: '教师', STUDENT: '学生' }[role] ?? '未知角色';
-}
-
-function statusText(status) {
-  return {
-    PRESENT: '已到',
-    ABSENT: '缺勤',
-    LATE: '迟到',
-    EXCUSED: '已请假',
-    PENDING: '待审核',
-    APPROVED: '已通过',
-    REJECTED: '已驳回',
-    OPEN: '进行中',
-    CLOSED: '已结束',
-  }[status] ?? '未知状态';
-}
-
-function sourceText(source) {
-  return { QR: '扫码', CODE: '验证码', MANUAL: '手动', LEAVE: '申报' }[source] ?? '-';
-}
-
-function methodText(method) {
-  return { QR: '二维码', CODE: '数字验证码', MANUAL: '手动点名' }[method] ?? '二维码';
-}
-
-function courseNameText(name) {
-  return name ?? '-';
-}
-
-function teacherOptionText(teacher) {
-  return `${teacher.name}（${teacher.username ?? `ID ${teacher.id}`}） · ${teacher.department_name ?? teacher.department ?? '未设置院系'}`;
-}
+import {
+  courseNameText,
+  csvCell,
+  displayAdminRow,
+  formatAdminCell,
+  formatCourseSchedule,
+  formatDate,
+  formatSeconds,
+  formatToday,
+  methodText,
+  roleText,
+  sortableAriaSort,
+  sourceText,
+  statusText,
+  teacherOptionText,
+} from './utils/format';
+import {
+  filterAdminCourses,
+  filterClassroomRows,
+  filterRows,
+  filterStudentRows,
+  filterTeacherRows,
+  handleColumnSort,
+  sessionTotals,
+  sortRows,
+} from './utils/filters';
+import { adminFieldValue, emptyAdminForm, normalizeAdminForm } from './utils/adminForm';
 
 function App() {
   const [session, setSession] = useState(() => {
@@ -3593,11 +3586,6 @@ function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter,
   );
 }
 
-function sortableAriaSort(column, sortColumn, sortDirection) {
-  if (sortColumn !== column) return 'none';
-  return sortDirection === 'asc' ? 'ascending' : 'descending';
-}
-
 function useTableSort(rows) {
   const [sort, setSort] = useState({ sortColumn: null, sortDirection: null });
   const sortedRows = useMemo(() => sortRows(rows, sort.sortColumn, sort.sortDirection), [rows, sort.sortColumn, sort.sortDirection]);
@@ -3684,154 +3672,6 @@ function AdminDataTable({ rows, columns, labels = {}, loading, resourceTitle = '
       {footer}
     </div>
   );
-}
-
-function emptyAdminForm(fields) {
-  return Object.fromEntries(fields.map(([name]) => [name, '']));
-}
-
-function normalizeAdminForm(form) {
-  return Object.fromEntries(Object.entries(form).map(([key, value]) => {
-    const numeric = ['classId', 'courseId', 'teacherId', 'assignmentId', 'studentId', 'departmentId'].includes(key);
-    return [key, numeric && value !== '' ? Number(value) : value];
-  }));
-}
-
-function adminFieldValue(row, name) {
-  if (name === 'password') return '';
-  const map = {
-    studentNo: 'student_no',
-    classId: 'class_id',
-    courseId: 'course_id',
-    teacherId: 'teacher_id',
-    assignmentId: 'assignment_id',
-    studentId: 'student_id',
-    departmentId: 'department_id',
-  };
-  return String(row[name] ?? row[map[name]] ?? '');
-}
-
-function filterRows(rows, query) {
-  const value = query.trim().toLowerCase();
-  if (!value) return rows;
-  return rows.filter((row) => Object.values(row).some((cell) => String(cell ?? '').toLowerCase().includes(value)));
-}
-
-function filterStudentRows(rows, query) {
-  const value = query.trim().toLowerCase();
-  if (!value) return rows;
-  return rows.filter((row) => [row.name, row.student_no].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
-}
-
-function filterTeacherRows(rows, query) {
-  const value = query.trim().toLowerCase();
-  if (!value) return rows;
-  return rows.filter((row) => [row.name, row.username].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
-}
-
-function filterClassroomRows(rows, query) {
-  const value = query.trim().toLowerCase();
-  if (!value) return rows;
-  return rows.filter((row) => [row.name, row.building].some((cell) => String(cell ?? '').toLowerCase().includes(value)));
-}
-
-function filterAdminCourses(courses, filters) {
-  const query = filters.query.trim().toLowerCase();
-  return courses.filter((course) => {
-    const matchesQuery = !query || [course.name, course.code].some((cell) => String(cell ?? '').toLowerCase().includes(query));
-    const matchesDepartment = filters.department === '全部院系' || course.department_name === filters.department;
-    const matchesTerm = filters.term === '全部学期' || course.term === filters.term;
-    return matchesQuery && matchesDepartment && matchesTerm;
-  });
-}
-
-function sortRows(rows, column, direction) {
-  if (!column || !direction) return rows;
-  return [...rows].sort((a, b) => {
-    const aVal = a[column] ?? '';
-    const bVal = b[column] ?? '';
-    const aText = String(aVal).trim();
-    const bText = String(bVal).trim();
-    const aNum = Number(aText);
-    const bNum = Number(bText);
-    if (aText !== '' && bText !== '' && Number.isFinite(aNum) && Number.isFinite(bNum)) {
-      return direction === 'asc' ? aNum - bNum : bNum - aNum;
-    }
-    const cmp = String(aVal).localeCompare(String(bVal), 'zh-Hans-CN');
-    return direction === 'asc' ? cmp : -cmp;
-  });
-}
-
-function handleColumnSort(column, currentColumn, currentDirection) {
-  if (column === currentColumn) {
-    if (currentDirection === 'asc') return { sortColumn: column, sortDirection: 'desc' };
-    return { sortColumn: null, sortDirection: null };
-  }
-  return { sortColumn: column, sortDirection: 'asc' };
-}
-
-function displayAdminRow(row) {
-  return courseNameText(row.name || row.course_name || row.student_name || row.username || `#${row.id}`);
-}
-
-function formatAdminCell(row, column) {
-  if (column === 'status') return statusText(row[column]);
-  if (column === 'source') return sourceText(row[column]);
-  if (column === 'course_name' || column === 'name') return courseNameText(row[column]);
-  return String(row[column] ?? '');
-}
-
-function sessionTotals(sessions) {
-  const validSessions = sessions.filter((row) => Number(row.total_count ?? 0) > 0);
-  if (!validSessions.length) {
-    return { attendanceRate: '0%', absenceRate: '0%' };
-  }
-
-  const rates = validSessions.reduce(
-    (sum, row) => {
-      const total = Number(row.total_count ?? 0);
-      const attended = Number(row.present_count ?? 0) + Number(row.late_count ?? 0);
-      return {
-        attendance: sum.attendance + attended / total,
-        absence: sum.absence + Number(row.absent_count ?? 0) / total,
-      };
-    },
-    { attendance: 0, absence: 0 },
-  );
-  return {
-    attendanceRate: `${Math.round((rates.attendance / validSessions.length) * 100)}%`,
-    absenceRate: `${Math.round((rates.absence / validSessions.length) * 100)}%`,
-  };
-}
-
-function formatDate(value) {
-  if (!value) return '-';
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
-}
-
-function formatCourseSchedule(course) {
-  if (!course.weekday && !course.start_time && !course.end_time) return '未排课';
-  const time = [course.start_time, course.end_time].filter(Boolean).join('-');
-  return [course.weekday, time].filter(Boolean).join(' ');
-}
-
-function formatToday() {
-  return new Date().toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  });
-}
-
-function formatSeconds(value) {
-  const minutes = Math.floor(value / 60);
-  const seconds = value % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
-
-function csvCell(value) {
-  return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
 
 const root = document.getElementById('root');
