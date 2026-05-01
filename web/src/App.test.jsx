@@ -911,7 +911,7 @@ function mockAdminApi(options = {}) {
   ];
   const gappedStudents = [
     { id: 1, name: '李同学', username: 'student1', student_no: '20230001', grade: '2023', department_id: 1, department_name: '计算机学院' },
-    { id: 4, name: '黄同学', username: 'B22042131', student_no: 'B22042131', grade: '2022', department_id: 1, department_name: '计算机学院' },
+    { id: 4, name: '黄同学', username: 'B2299XX01', student_no: 'B2299XX01', grade: '2022', department_id: 1, department_name: '计算机学院' },
   ];
   let students = options.manyStudents
     ? Array.from({ length: 13 }, (_, index) => ({
