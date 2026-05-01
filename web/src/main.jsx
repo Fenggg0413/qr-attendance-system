@@ -66,6 +66,7 @@ import {
   sortRows,
 } from './utils/filters';
 import { adminFieldValue, emptyAdminForm, normalizeAdminForm } from './utils/adminForm';
+import { useTableSort } from './hooks/useTableSort';
 
 function App() {
   const [session, setSession] = useState(() => {
@@ -3584,24 +3585,6 @@ function AdminTableToolbar({ query, onQuery, departments = [], departmentFilter,
       )}
     </section>
   );
-}
-
-function useTableSort(rows) {
-  const [sort, setSort] = useState({ sortColumn: null, sortDirection: null });
-  const sortedRows = useMemo(() => sortRows(rows, sort.sortColumn, sort.sortDirection), [rows, sort.sortColumn, sort.sortDirection]);
-  const onSort = useCallback((column) => {
-    setSort((current) => handleColumnSort(column, current.sortColumn, current.sortDirection));
-  }, []);
-  const resetSort = useCallback(() => {
-    setSort({ sortColumn: null, sortDirection: null });
-  }, []);
-  return {
-    sortedRows,
-    sortColumn: sort.sortColumn,
-    sortDirection: sort.sortDirection,
-    onSort,
-    resetSort,
-  };
 }
 
 function SortableTableHeader({ label, column, sortColumn, sortDirection, onSort }) {
