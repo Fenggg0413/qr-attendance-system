@@ -43,6 +43,7 @@ import com.example.qrattendance.ui.theme.TextSecondary
 import com.example.qrattendance.ui.theme.TextTertiary
 
 @Composable
+// 课表页：顶部周一至周五 Tab，下方 LazyColumn 展示对应日的节次与教室。
 fun ScheduleScreen() {
   val container = LocalContainer.current
   val vm = remember { ScheduleViewModel(container.api) }

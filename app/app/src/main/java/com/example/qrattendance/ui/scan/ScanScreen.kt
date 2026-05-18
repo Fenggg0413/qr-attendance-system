@@ -67,6 +67,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 
+// 扫码页：CameraX PreviewView + ImageAnalysis 把帧送入 QrImageAnalyzer；扫到合法 QR 后委托 ScanViewModel.onPayload 完成签到。
+// 相机生命周期绑定到 LocalLifecycleOwner，Composable 离开时自动 unbind 释放相机硬件。
 @Composable
 fun ScanScreen(onClose: () -> Unit) {
   val context = LocalContext.current

@@ -21,6 +21,7 @@ import com.example.qrattendance.ui.theme.Border
 import com.example.qrattendance.ui.theme.Surface
 import com.example.qrattendance.ui.theme.TextSecondary
 
+// 通用顶栏：左侧 Avatar + 中间标题/副标题；用于主框架顶部展示问候语与登录账号。
 @Composable
 fun TopBar(title: String, subtitle: String, avatarName: String, modifier: Modifier = Modifier) {
   Row(

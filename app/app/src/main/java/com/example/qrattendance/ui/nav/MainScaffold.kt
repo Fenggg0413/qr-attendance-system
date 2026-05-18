@@ -47,8 +47,10 @@ import com.example.qrattendance.ui.theme.PrimaryLight
 import com.example.qrattendance.ui.theme.Surface
 import com.example.qrattendance.ui.theme.TextTertiary
 
+// 全屏覆盖层路由：与底部 Tab 平级，但显示时盖在内容上方（如扫码、请假表单）。
 private enum class OverlayRoute { None, LeaveList, LeaveCompose, Scan }
 
+// 登录后的主框架：四个底部 Tab + 中间凸起的扫码按钮 + 全屏 Overlay；用 remember 持有 selected/overlay 两个状态。
 @Composable
 fun MainScaffold(onLogout: () -> Unit) {
   var selected by remember { mutableStateOf(TabRoute.Home) }
@@ -81,6 +83,7 @@ fun MainScaffold(onLogout: () -> Unit) {
   }
 }
 
+// 底部导航条：四个 Tab + 中心凸起的扫码按钮；高度随系统导航条 inset 自适应。
 @Composable
 private fun BottomNav(selected: TabRoute, onSelected: (TabRoute) -> Unit, onScan: () -> Unit, modifier: Modifier = Modifier) {
   Box(modifier = modifier.fillMaxWidth()) {
@@ -117,6 +120,7 @@ private fun BottomNav(selected: TabRoute, onSelected: (TabRoute) -> Unit, onScan
   }
 }
 
+// 单个 Tab 按钮：选中时用 Primary 色突出，未选中用次级文字色。
 @Composable
 private fun TabButton(route: TabRoute, active: Boolean, onSelected: (TabRoute) -> Unit, modifier: Modifier = Modifier) {
   val color = if (active) Primary else TextTertiary

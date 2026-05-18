@@ -61,6 +61,7 @@ private val GradientStart = Color(0xFFEAF2F8)
 private val GradientEnd = Background
 private val InputBorder = Border
 
+// 登录页：账号密码输入 + 服务端地址配置入口；登录成功通过 onLoggedIn 回调通知上层切换路由。
 @Composable
 fun LoginScreen(onLoggedIn: () -> Unit) {
   val container = LocalContainer.current

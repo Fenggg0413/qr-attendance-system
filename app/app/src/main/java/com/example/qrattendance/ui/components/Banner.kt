@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.example.qrattendance.ui.theme.Primary
 import com.example.qrattendance.ui.theme.PrimaryLight
 
+// 顶部彩色横幅：左侧标题/副标题 + 右侧统计 Pair 列表（label 与 value 同色）。
 @Composable
 fun Banner(title: String, subtitle: String, stats: List<Pair<String, String>>, modifier: Modifier = Modifier) {
   Column(

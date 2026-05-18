@@ -2,6 +2,7 @@ package com.example.qrattendance.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// 主题色板：与 web 端配色保持一致，便于跨端视觉统一；Status* 色用于业务状态标签。
 val Primary = Color(0xFF1976D2)
 val PrimaryLight = Color(0xFF42A5F5)
 val Accent = Color(0xFFFF6B35)

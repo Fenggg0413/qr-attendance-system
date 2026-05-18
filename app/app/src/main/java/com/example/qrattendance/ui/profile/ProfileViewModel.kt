@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 
+// 个人中心 UI 状态：拉取档案、修改昵称对话框、修改密码对话框三套子状态合并在同一份 state。
 data class ProfileUiState(
   val loading: Boolean = true,
   val user: User? = null,
@@ -23,10 +24,12 @@ data class ProfileUiState(
   val passwordMessage: String? = null,
 )
 
+// 个人中心 ViewModel：加载档案、修改昵称、修改密码三组流程。
 class ProfileViewModel(private val api: StudentApi, private val sessionStore: SessionStore) {
   private val _uiState = MutableStateFlow(ProfileUiState())
   val uiState: StateFlow<ProfileUiState> = _uiState
 
+  // 进入页面时拉取最新档案。
   suspend fun load() {
     _uiState.update { it.copy(loading = true, error = null) }
     runCatching { api.me() }
@@ -34,6 +37,7 @@ class ProfileViewModel(private val api: StudentApi, private val sessionStore: Se
       .onFailure { error -> _uiState.update { it.copy(loading = false, error = error.message ?: "加载失败") } }
   }
 
+  // 打开昵称编辑：把当前 displayName 灌入草稿，空时降级到 name 字段，避免输入框初始为空。
   fun openEditProfile() {
     val user = uiState.value.user
     _uiState.update {
@@ -53,6 +57,7 @@ class ProfileViewModel(private val api: StudentApi, private val sessionStore: Se
     _uiState.update { it.copy(displayNameDraft = value, profileMessage = null) }
   }
 
+  // 提交昵称修改：本地非空校验 → 调 API → 成功后把新昵称回写本地会话（保持 UI 顶栏与服务端一致）。
   suspend fun submitProfile() {
     val displayName = uiState.value.displayNameDraft.trim()
     if (displayName.isBlank()) {
@@ -62,6 +67,7 @@ class ProfileViewModel(private val api: StudentApi, private val sessionStore: Se
     _uiState.update { it.copy(profileSaving = true, profileMessage = null) }
     runCatching { api.updateProfile(displayName) }
       .onSuccess { user ->
+        // 拿到现有 token 重新 save：把新的 displayName 写回 EncryptedSessionStore，避免下次启动时顶栏仍显示旧昵称。
         sessionStore.token()?.let { token -> sessionStore.save(token, user) }
         _uiState.update {
           it.copy(
@@ -98,6 +104,7 @@ class ProfileViewModel(private val api: StudentApi, private val sessionStore: Se
     _uiState.update { it.copy(confirmPassword = value, passwordMessage = null) }
   }
 
+  // 提交密码修改：① 旧密码非空 ② 新密码 ≥6 位 ③ 两次输入一致；任一不满足在本地短路提示，不发请求。
   suspend fun submitPassword() {
     val state = uiState.value
     if (state.currentPassword.isBlank()) {
@@ -115,6 +122,7 @@ class ProfileViewModel(private val api: StudentApi, private val sessionStore: Se
     _uiState.update { it.copy(passwordSaving = true, passwordMessage = null) }
     runCatching { api.changePassword(state.currentPassword, state.newPassword) }
       .onSuccess {
+        // 成功后清空三个输入框，避免对话框关闭后再打开时仍残留密码明文。
         _uiState.update {
           it.copy(
             editingPassword = false,

@@ -25,6 +25,7 @@ import com.example.qrattendance.ui.theme.Border
 import com.example.qrattendance.ui.theme.Surface
 import com.example.qrattendance.ui.theme.TextSecondary
 
+// 首页/仪表板上的快速统计卡片：左侧 tint 色图标 + 大字号 value + 灰色 label。
 @Composable
 fun QuickStatCard(value: String, label: String, tint: Color, icon: ImageVector = Icons.Rounded.CheckCircle, modifier: Modifier = Modifier) {
   Row(

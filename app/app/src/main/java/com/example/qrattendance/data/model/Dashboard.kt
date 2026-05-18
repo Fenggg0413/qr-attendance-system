@@ -2,6 +2,7 @@ package com.example.qrattendance.data.model
 
 import kotlinx.serialization.Serializable
 
+// 学生端首页仪表板：今日课程、出勤/请假计数、本学期出勤率，以及今日所有签到会话列表。
 @Serializable
 data class Dashboard(
   val todayCount: Int = 0,

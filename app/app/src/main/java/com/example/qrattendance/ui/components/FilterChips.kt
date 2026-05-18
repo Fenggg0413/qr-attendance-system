@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.qrattendance.ui.theme.Primary
 import com.example.qrattendance.ui.theme.TextSecondary
 
+// 横向 Chip 列表：常用于课表/记录页的 Tab 切换；selected 命中项高亮显示。
 @Composable
 fun FilterChips(items: List<String>, selected: String, onSelected: (String) -> Unit, modifier: Modifier = Modifier) {
   Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

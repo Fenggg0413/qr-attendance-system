@@ -60,6 +60,7 @@ import com.example.qrattendance.ui.theme.TextSecondary
 import kotlinx.coroutines.launch
 
 @Composable
+// 个人中心：展示档案、修改昵称、修改密码、跳转请假管理、退出登录。
 fun ProfileScreen(onOpenLeave: () -> Unit, onLogout: () -> Unit) {
   val container = LocalContainer.current
   val vm = remember { ProfileViewModel(container.api, container.sessionStore) }

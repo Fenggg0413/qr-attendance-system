@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.example.qrattendance.ui.theme.Primary
 import com.example.qrattendance.ui.theme.PrimaryLight
 
+// 圆形头像：取 name 首字（中文）或首字母（英文）作为内容，背景使用 Primary 渐变。
 @Composable
 fun Avatar(name: String, modifier: Modifier = Modifier, size: Dp = 34.dp) {
   val initial = name.firstOrNull()?.toString() ?: "学"

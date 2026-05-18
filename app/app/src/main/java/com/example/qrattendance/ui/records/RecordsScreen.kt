@@ -44,6 +44,7 @@ import com.example.qrattendance.ui.theme.TextSecondary
 import java.time.LocalDate
 
 @Composable
+// 考勤记录页：顶部 FilterChips 切换全部/出勤/缺勤，下方 LazyColumn 渲染对应记录列表。
 fun RecordsScreen() {
   val container = LocalContainer.current
   val vm = remember { RecordsViewModel(container.api) }

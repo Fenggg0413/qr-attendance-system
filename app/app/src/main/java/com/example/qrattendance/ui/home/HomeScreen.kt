@@ -51,6 +51,7 @@ import com.example.qrattendance.ui.theme.Surface
 import com.example.qrattendance.ui.theme.TextSecondary
 
 @Composable
+// 首页：渲染问候语、今日课程、本学期出勤统计；点击扫码按钮通过 onOpenScan 触发 Overlay 切换。
 fun HomeScreen(onOpenScan: () -> Unit) {
   val container = LocalContainer.current
   val vm = remember { HomeViewModel(container.api) }

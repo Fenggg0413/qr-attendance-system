@@ -43,6 +43,7 @@ import com.example.qrattendance.ui.theme.Surface
 import com.example.qrattendance.ui.theme.TextSecondary
 
 @Composable
+// 请假列表页：展示已提交的请假申请，右下角 FAB 跳转到 LeaveComposeScreen 新增申请。
 fun LeaveListScreen(onBack: () -> Unit, onCompose: () -> Unit) {
   val container = LocalContainer.current
   val vm = remember { LeaveViewModel(container.api) }
@@ -63,6 +64,7 @@ fun LeaveListScreen(onBack: () -> Unit, onCompose: () -> Unit) {
 }
 
 @Composable
+// 请假相关页面共用的顶栏：左侧返回箭头 + 居中标题。
 fun LeaveTopBar(title: String, onBack: () -> Unit) {
   Row(Modifier.fillMaxWidth().background(Surface).padding(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
     IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, contentDescription = "返回") }

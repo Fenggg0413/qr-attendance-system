@@ -2,6 +2,7 @@ package com.example.qrattendance.data.model
 
 import kotlinx.serialization.Serializable
 
+// 课表中一节课的展开形式：包含周几（weekday）、节次（period）、所属课程、教师、教室与学期。
 @Serializable
 data class ScheduleSlot(
   val slotId: Long = 0,

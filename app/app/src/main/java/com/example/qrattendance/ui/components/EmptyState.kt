@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import com.example.qrattendance.ui.theme.TextSecondary
 import com.example.qrattendance.ui.theme.TextTertiary
 
+// 空状态占位：列表无数据时居中显示提示文案。
 @Composable
 fun EmptyState(text: String, modifier: Modifier = Modifier) {
   Column(modifier = modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {

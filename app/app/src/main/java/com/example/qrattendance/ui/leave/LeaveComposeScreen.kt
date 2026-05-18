@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+// 请假提交页：下拉选择最近一周内的会话 + 多行输入请假理由，提交后返回上一页。
 fun LeaveComposeScreen(onBack: () -> Unit) {
   val container = LocalContainer.current
   val vm = remember { LeaveViewModel(container.api) }

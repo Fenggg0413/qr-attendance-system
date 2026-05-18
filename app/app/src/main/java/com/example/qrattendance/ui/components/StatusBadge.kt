@@ -16,6 +16,7 @@ import com.example.qrattendance.ui.theme.StatusPurple
 import com.example.qrattendance.ui.theme.StatusRed
 import com.example.qrattendance.ui.theme.TextSecondary
 
+// 状态徽章：根据 status 字符串（PRESENT/LATE/ABSENT/EXCUSED 等）选择对应的背景/文字色和中文标签。
 @Composable
 fun StatusBadge(status: String, modifier: Modifier = Modifier) {
   val (label, color) = when (status.uppercase()) {
